@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#123B65">
+  <title>Administration des documents — CampusShare</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+  <script src="/admin.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/" aria-label="Accueil CampusShare"><span class="brand-mark" aria-hidden="true">✦</span><span>Campus<span class="brand-accent">Share</span></span></a>
+      <a class="text-button" href="/">← Accueil CampusShare</a>
+    </div>
+  </header>
+  <main class="admin-page">
+    <div class="container">
+      <div class="section-heading"><div><div class="eyebrow">ADMINISTRATION CAMPUSSHARE</div><h1>Gestion des documents</h1></div></div>
+      <section class="admin-panel" id="admin-login-panel">
+        <h2>Accès administrateur</h2>
+        <p>Entrez le jeton configuré dans la variable d’environnement <code>CAMPUSSHARE_ADMIN_TOKEN</code> du serveur. Il reste uniquement dans cet onglet.</p>
+        <form id="admin-login"><label>Jeton administrateur<input id="admin-token" type="password" autocomplete="current-password" required></label><button class="button button-primary" type="submit">Ouvrir le tableau de bord</button></form>
+      </section>
+      <p class="resource-error" id="admin-error" role="alert" hidden></p>
+      <section id="admin-dashboard" hidden>
+        <div class="admin-toolbar"><p id="admin-status" role="status"></p><button class="button button-secondary" id="admin-logout" type="button">Verrouiller le tableau de bord</button></div>
+        <div class="admin-management-grid">
+          <form class="admin-panel admin-form" id="major-form">
+            <h2>Ajouter une filière</h2>
+            <label>Niveau académique<select name="academicLevel" id="admin-level" required></select></label>
+            <label>Nom de la filière<input name="name" maxlength="120" required></label>
+            <button class="button button-primary" type="submit">Ajouter la filière</button>
+          </form>
+          <form class="admin-panel admin-form" id="year-form">
+            <h2>Ajouter une année académique</h2>
+            <label>Année académique<input name="year" type="text" inputmode="numeric" pattern="\d{4}[–-]\d{4}" placeholder="2026–2027" required></label>
+            <button class="button button-primary" type="submit">Ajouter l’année</button>
+          </form>
+        </div>
+        <section class="admin-panel">
+          <div class="admin-list-heading"><h2>Documents soumis</h2><label>Statut<select id="admin-status-filter"><option value="pending">En attente</option><option value="approved">Approuvés</option><option value="rejected">Rejetés</option><option value="all">Tous les documents</option></select></label></div>
+          <div id="admin-resources" class="admin-resources"></div>
+        </section>
+      </section>
+    </div>
+  </main>
+  <footer class="site-footer"><div class="container footer-inner"><a class="brand footer-brand" href="/">Campus<span class="brand-accent">Share</span></a><p>Outils d’administration</p></div></footer>
+</body>
+</html>

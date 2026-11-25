@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#123B65">
+  <meta name="description" content="Découvrez et partagez les ressources académiques approuvées par CampusShare.">
+  <title>CampusShare — Réussir ensemble</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <header class="site-header home-site-header">
+    <div class="container header-inner">
+      <a class="brand" href="#" aria-label="Accueil CampusShare">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" fill="none"><path d="M4 11.2 16 5l12 6.2L16 17.5 4 11.2Z" fill="currentColor"/><path d="M8 14v7.1c4.8 3.8 11.2 3.8 16 0V14l-8 4.2L8 14Z" fill="currentColor" opacity=".72"/><path d="M28 11.5v8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </span>
+        <span>Campus<span class="brand-accent">Share</span></span>
+      </a>
+      <nav class="main-nav" id="main-nav" aria-label="Navigation principale">
+        <a class="nav-link active" href="#home">Découvrir</a>
+        <a class="nav-link" href="#academic-path">Parcourir</a>
+        <a class="nav-link" href="#student-documents">Documents</a>
+        <a class="nav-link" href="/admin.html">Administration</a>
+      </nav>
+      <a class="button button-primary header-upload" href="#upload">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 13V3m0 0L6 7m4-4 4 4M4 12v4a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Partager une ressource
+      </a>
+      <button class="menu-toggle" type="button" aria-label="Ouvrir la navigation" aria-expanded="false" aria-controls="main-nav">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero" id="home">
+      <div class="hero-pattern" aria-hidden="true"></div>
+      <div class="container hero-content">
+        <div class="hero-copy">
+          <div class="eyebrow hero-eyebrow"><span class="eyebrow-dot"></span> LE SAVOIR DE VOTRE CAMPUS, À PARTAGER</div>
+          <h1>De bonnes notes.<br><span>Ensemble, on avance.</span></h1>
+          <p class="hero-description">Trouvez les ressources qu’il vous faut, partagées par des étudiants qui connaissent vos cours. Apprenez plus, stressez moins.</p>
+          <form class="search-form" id="search-form" role="search">
+            <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            <label class="sr-only" for="resource-search">Rechercher des ressources ou des cours</label>
+            <input id="resource-search" type="search" placeholder="Rechercher un cours, des notes, une annale…" autocomplete="off">
+            <button type="submit" class="button search-button">Rechercher</button>
+          </form>
+          <div class="popular-searches">
+            <span>Populaires :</span>
+            <button type="button" data-search="biologie">Biologie 101</button>
+            <button type="button" data-search="analyse">Analyse</button>
+            <button type="button" data-search="économie">Économie</button>
+          </div>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <div class="art-orbit orbit-one"></div>
+          <div class="art-orbit orbit-two"></div>
+          <div class="art-spark spark-one">✦</div>
+          <div class="art-spark spark-two">✳</div>
+          <div class="art-book book-back"><span></span><span></span><span></span></div>
+          <div class="art-book book-front"><div class="book-cap">✦</div><div class="book-title">VOTRE PROCHAINE<br>GRANDE IDÉE</div><div class="book-lines"></div><div class="book-bottom"><span>NOTES DE COURS</span><span>01 — 24</span></div></div>
+          <div class="floating-note note-top"><span class="note-icon">✓</span><span><strong>Partagé avec soin</strong><small>Entre étudiants</small></span></div>
+          <div class="floating-note note-bottom"><span class="note-avatar">A</span><span><strong>Alex vient de publier</strong><small>Il y a 2 min · Biologie</small></span></div>
+        </div>
+        <div class="hero-footnote"><span class="tiny-avatars"><i>J</i><i>M</i><i>A</i></span><span>Créé pour les étudiants, enrichi par tous</span></div>
+      </div>
+    </section>
+
+    <section class="section categories-section" id="academic-path">
+      <div class="container">
+        <div class="section-heading">
+          <div><div class="eyebrow">VOTRE PARCOURS ACADÉMIQUE</div><h2>Explorer par niveau académique</h2></div>
+          <p>Choisissez votre niveau, votre filière et votre catégorie de ressource pour trouver les documents du module.</p>
+        </div>
+        <div class="academic-step" id="university-step">
+          <div class="step-heading"><span class="step-number">01</span><h3>Sélectionnez une université</h3></div>
+          <div class="university-grid" id="university-grid">
+            <button class="level-card university-card" type="button" data-university="FST Settat"><span class="level-card-index">01</span><strong>FST Settat</strong><span>Voir les niveaux disponibles <b aria-hidden="true">→</b></span></button>
+            <button class="level-card university-card future-card" type="button" disabled><span class="level-card-index">02</span><strong>Autres universités</strong><span>Bientôt disponibles</span></button>
+          </div>
+        </div>
+        <div class="academic-summary" id="university-summary" hidden><span class="academic-summary-check" aria-hidden="true">✓</span><p class="academic-summary-text">Université : <strong id="summary-university"></strong></p><button class="academic-summary-edit" type="button" data-edit-step="0">Modifier</button></div>
+        <div class="academic-step" id="level-step" hidden>
+          <div class="step-heading"><span class="step-number">02</span><h3>Sélectionnez un niveau académique</h3></div>
+          <p class="selected-path" id="selected-university"></p>
+          <div class="level-grid" id="level-grid"></div>
+        </div>
+        <div class="academic-summary" id="level-summary" hidden><span class="academic-summary-check" aria-hidden="true">✓</span><p class="academic-summary-text">Niveau : <strong id="summary-level"></strong></p><button class="academic-summary-edit" type="button" data-edit-step="1">Modifier</button></div>
+        <div class="academic-step" id="major-step" hidden>
+          <div class="step-heading"><span class="step-number">03</span><h3>Sélectionnez une filière</h3></div>
+          <p class="selected-path" id="selected-level"></p>
+          <div class="major-grid" id="major-grid"></div>
+          <p class="empty-state" id="empty-majors" hidden>Aucune filière n’a encore été ajoutée à ce niveau.</p>
+        </div>
+        <div class="academic-summary" id="major-summary" hidden><span class="academic-summary-check" aria-hidden="true">✓</span><p class="academic-summary-text">Filière : <strong id="summary-major"></strong></p><button class="academic-summary-edit" type="button" data-edit-step="2">Modifier</button></div>
+        <div class="academic-step" id="category-step" hidden>
+          <div class="step-heading"><span class="step-number">04</span><h3>Choisissez une catégorie</h3></div>
+          <p class="selected-path" id="selected-major"></p>
+          <div class="category-grid" id="category-grid">
+            <button class="category-card category-exams" type="button" data-category="Exams"><span class="category-icon" aria-hidden="true">01</span><span class="category-text"><strong>Examens</strong><small>Session normale et rattrapage</small></span><span class="category-arrow" aria-hidden="true">→</span></button>
+            <button class="category-card category-courses" type="button" data-category="Courses"><span class="category-icon" aria-hidden="true">02</span><span class="category-text"><strong>Cours</strong><small>Notes de cours et supports</small></span><span class="category-arrow" aria-hidden="true">→</span></button>
+            <button class="category-card category-documents" type="button" data-category="TD & TP"><span class="category-icon" aria-hidden="true">03</span><span class="category-text"><strong>TD &amp; TP</strong><small>Exercices, travaux pratiques et corrections</small></span><span class="category-arrow" aria-hidden="true">→</span></button>
+          </div>
+        </div>
+        <div class="academic-summary" id="category-summary" hidden><span class="academic-summary-check" aria-hidden="true">✓</span><p class="academic-summary-text">Catégorie : <strong id="summary-category"></strong></p><button class="academic-summary-edit" type="button" data-edit-step="3">Modifier</button></div>
+        <div class="academic-step" id="browser-step" hidden>
+          <div class="step-heading"><span class="step-number">05</span><h3 id="browser-title">Documents</h3></div>
+          <p class="selected-path" id="browse-breadcrumb"></p>
+          <div class="academic-filters browse-filters">
+            <label id="year-filter-wrap" hidden>Année académique<select id="browse-year"></select></label>
+            <label id="semester-filter-wrap">Semestre<select id="browse-semester"></select></label>
+            <label>Module<select id="browse-module"></select></label>
+            <label id="type-filter-wrap" hidden>Type de document<select id="browse-type"></select></label>
+            <label id="exam-filter-wrap" hidden>Type d’examen<select id="browse-exam-type"></select></label>
+          </div>
+          <div class="carousel-heading"><span class="gallery-count" id="browse-gallery-count"></span><a class="text-button" id="browse-view-all" href="/library.html">Voir tout</a><div class="carousel-controls"><button class="carousel-arrow" id="browse-prev" data-direction="-1" type="button" aria-label="Faire défiler vers la gauche" disabled>←</button><button class="carousel-arrow" id="browse-next" data-direction="1" type="button" aria-label="Faire défiler vers la droite" disabled>→</button></div></div>
+          <div class="carousel-viewport" id="browse-carousel" tabindex="0" aria-label="Documents académiques filtrés"><div class="carousel-track" id="browse-resources" aria-live="polite"></div></div>
+          <p class="empty-state" id="empty-browse" hidden>Aucun document approuvé ne correspond à ces critères.</p>
+        </div>
+        <p class="resource-error" id="academic-error" role="status" hidden></p>
+        <div class="academic-loading" id="academic-loading" role="status" hidden>Chargement du parcours académique…</div>
+      </div>
+    </section>
+
+    <section class="section resources-section" id="student-documents">
+      <div class="container">
+        <div class="section-heading resources-heading">
+          <div><div class="eyebrow">DOCUMENTS APPROUVÉS PARTAGÉS PAR LES ÉTUDIANTS</div><h2>DOCUMENTS PARTAGÉS PAR LES ÉTUDIANTS</h2><p>Découvrez les ressources académiques partagées par les étudiants.</p></div>
+          <a class="text-button" href="/library.html">Voir tout <span aria-hidden="true">→</span></a>
+        </div>
+        <div class="carousel-heading"><span class="gallery-count" id="home-gallery-count">Documents approuvés</span><div class="carousel-controls"><button class="carousel-arrow" id="home-prev" type="button" aria-label="Faire défiler vers la gauche" disabled>←</button><button class="carousel-arrow" id="home-next" type="button" aria-label="Faire défiler vers la droite" disabled>→</button></div></div>
+        <div class="carousel-viewport" id="home-carousel" tabindex="0" aria-label="Documents partagés par les étudiants"><div class="carousel-track" id="home-resource-track"></div></div>
+        <p class="empty-state" id="empty-home-resources" hidden>Aucun document approuvé n’est disponible pour le moment.</p>
+        <p class="resource-error" id="home-resource-error" role="status" hidden></p>
+      </div>
+    </section>
+
+    <section class="upload-section" id="upload">
+      <div class="container upload-panel upload-panel-form">
+        <div class="upload-copy"><span class="upload-star" aria-hidden="true">✦</span><div class="eyebrow">CONTRIBUEZ À VOTRE CAMPUS</div><h2>Partager un document</h2><p>Les soumissions sont vérifiées par un administrateur avant d’être publiées dans la bibliothèque.</p></div>
+        <form class="upload-form" id="upload-form">
+          <label>Titre du document<input name="title" maxlength="180" required></label>
+          <label>Niveau académique<select name="academicLevel" id="upload-level" required></select></label>
+          <label>Filière<select name="major" id="upload-major" required disabled><option value="">Sélectionnez d’abord un niveau</option></select></label>
+          <label>Catégorie<select name="category" id="upload-category" required><option value="">Sélectionnez une catégorie</option><option value="Exams">Examens</option><option value="Courses">Cours</option><option value="TD & TP">TD &amp; TP</option></select></label>
+          <label>Année académique<select name="academicYear" id="upload-year" required></select></label>
+          <label>Semestre<select name="semester" required><option value="">Sélectionnez un semestre</option></select></label>
+          <label>Module<input name="module" maxlength="120" required></label>
+          <label id="upload-type-wrap">Type de document<select name="documentType" id="upload-type" required><option value="">Sélectionnez d’abord une catégorie</option></select></label>
+          <label id="upload-exam-wrap" hidden>Type d’examen<select name="examType" id="upload-exam-type"><option value="">Sélectionnez un type d’examen</option><option value="Normal Session">Session normale</option><option value="Rattrapage">Rattrapage</option></select></label>
+          <label class="upload-file-label">Document PDF<input type="file" name="file" accept="application/pdf,.pdf" required><small>PDF uniquement · 20 Mo maximum</small></label>
+          <label class="upload-file-label" id="correction-wrap" hidden>Correction PDF facultative<input type="file" name="correction" accept="application/pdf,.pdf"><small>Disponible comme téléchargement séparé après approbation.</small></label>
+          <button class="button upload-submit" type="submit">Envoyer pour vérification <span aria-hidden="true">→</span></button>
+          <p class="upload-status" id="upload-status" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner"><a class="brand footer-brand" href="#home"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M4 11.2 16 5l12 6.2L16 17.5 4 11.2Z" fill="currentColor"/><path d="M8 14v7.1c4.8 3.8 11.2 3.8 16 0V14l-8 4.2L8 14Z" fill="currentColor" opacity=".72"/><path d="M28 11.5v8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><span>Campus<span class="brand-accent">Share</span></span></a><p>Apprendre et partager, ensemble.</p><a class="footer-copyright" href="/admin.html">Administration</a></div>
+  </footer>
+</body>
+</html>

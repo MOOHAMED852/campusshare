@@ -1,0 +1,20 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+
+# IDE temporary files
+.idea/
+*.swp
+*.swo
+*~
+
+# Operating system temporary files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# General temporary files
+*.tmp
+*.temp

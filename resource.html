@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#123B65">
+  <title>Ressource — CampusShare</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="resource-details.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="index.html#home" aria-label="Accueil CampusShare">
+        <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M4 11.2 16 5l12 6.2L16 17.5 4 11.2Z" fill="currentColor"/><path d="M8 14v7.1c4.8 3.8 11.2 3.8 16 0V14l-8 4.2L8 14Z" fill="currentColor" opacity=".72"/><path d="M28 11.5v8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+        <span>Campus<span class="brand-accent">Share</span></span>
+      </a>
+      <a class="text-button" href="/library.html">← Bibliothèque</a>
+    </div>
+  </header>
+  <main class="resource-detail-page">
+    <div class="container">
+      <p class="resource-error" id="detail-error" role="status" hidden></p>
+      <article class="resource-detail" id="resource-detail" hidden>
+        <div class="resource-detail-preview" id="detail-preview"></div>
+        <div class="resource-detail-copy">
+          <div class="eyebrow" id="detail-category"></div>
+          <h1 id="detail-title"></h1>
+          <p class="resource-detail-path" id="detail-path"></p>
+          <p class="detail-demo-note" id="detail-demo-note" hidden></p>
+          <dl class="resource-detail-metadata">
+            <div><dt>Niveau</dt><dd id="detail-level"></dd></div>
+            <div><dt>Filière</dt><dd id="detail-major"></dd></div>
+            <div><dt>Année académique</dt><dd id="detail-year"></dd></div>
+            <div><dt>Semestre</dt><dd id="detail-semester"></dd></div>
+            <div><dt>Module</dt><dd id="detail-module"></dd></div>
+            <div><dt>Type de document</dt><dd id="detail-document-type"></dd></div>
+            <div><dt>Type d’examen</dt><dd id="detail-exam-type"></dd></div>
+            <div><dt>Consultations</dt><dd id="detail-viewers"></dd></div>
+            <div><dt>Téléchargements</dt><dd id="detail-downloads"></dd></div>
+            <div id="correction-downloads-row" hidden><dt>Téléchargements de la correction</dt><dd id="detail-correction-downloads"></dd></div>
+          </dl>
+          <div class="detail-actions"><a class="button button-primary" id="detail-download">Télécharger le PDF</a><button class="button button-primary" id="detail-demo-download" type="button" disabled hidden>Disponible après approbation</button><a class="button button-secondary" id="detail-correction" hidden>Télécharger la correction</a></div>
+        </div>
+      </article>
+    </div>
+  </main>
+  <footer class="site-footer">
+    <div class="container footer-inner"><a class="brand footer-brand" href="index.html#home"><span class="brand-mark" aria-hidden="true">✦</span><span>Campus<span class="brand-accent">Share</span></span></a><p>De meilleures notes, un meilleur semestre, ensemble.</p></div>
+  </footer>
+</body>
+</html>
