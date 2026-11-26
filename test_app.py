@@ -7,28 +7,28 @@ from pathlib import Path
 import app as campus_app
 
 
-class CampusShareApiTests(unittest.TestCase):
+class MaBiblioApiTests(unittest.TestCase):
     def setUp(self):
         self.temporary_directory = tempfile.TemporaryDirectory()
         self.original_database = campus_app.DATABASE_PATH
         self.original_uploads = campus_app.UPLOAD_DIR
-        self.original_admin_token = os.environ.get("CAMPUSSHARE_ADMIN_TOKEN")
+        self.original_admin_token = os.environ.get("MABIBLIO_ADMIN_TOKEN")
         campus_app.DATABASE_PATH = Path(self.temporary_directory.name) / "test.sqlite3"
         campus_app.UPLOAD_DIR = Path(self.temporary_directory.name) / "uploads"
         campus_app.UPLOAD_DIR.mkdir()
         campus_app.initialize_db()
         campus_app.app.config.update(TESTING=True)
         self.client = campus_app.app.test_client()
-        os.environ["CAMPUSSHARE_ADMIN_TOKEN"] = "test-admin-token"
+        os.environ["MABIBLIO_ADMIN_TOKEN"] = "test-admin-token"
         self.admin_headers = {"X-Admin-Token": "test-admin-token"}
 
     def tearDown(self):
         campus_app.DATABASE_PATH = self.original_database
         campus_app.UPLOAD_DIR = self.original_uploads
         if self.original_admin_token is None:
-            os.environ.pop("CAMPUSSHARE_ADMIN_TOKEN", None)
+            os.environ.pop("MABIBLIO_ADMIN_TOKEN", None)
         else:
-            os.environ["CAMPUSSHARE_ADMIN_TOKEN"] = self.original_admin_token
+            os.environ["MABIBLIO_ADMIN_TOKEN"] = self.original_admin_token
         self.temporary_directory.cleanup()
 
     def upload_course(self):

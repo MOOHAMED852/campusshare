@@ -1,6 +1,6 @@
-# CampusShare
+# MaBiblio
 
-CampusShare is served by the Flask application in `app.py`. SQLite data and private PDF uploads are created in the ignored `instance/` directory the first time the server starts.
+MaBiblio is served by the Flask application in `app.py`. SQLite data and private PDF uploads are created in the ignored `instance/` directory the first time the server starts.
 
 ## Windows setup
 
@@ -9,8 +9,8 @@ Install Python 3.9 or newer, then open PowerShell in this folder:
 ```powershell
 py -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-$env:CAMPUSSHARE_ADMIN_TOKEN = "replace-with-a-long-random-admin-token"
-$env:CAMPUSSHARE_SESSION_SECRET = "replace-with-a-different-long-random-secret"
+$env:MABIBLIO_ADMIN_TOKEN = "replace-with-a-long-random-admin-token"
+$env:MABIBLIO_SESSION_SECRET = "replace-with-a-different-long-random-secret"
 .\.venv\Scripts\python.exe app.py
 ```
 

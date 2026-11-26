@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#123B65">
-  <title>Administration des documents — CampusShare</title>
+  <title>Administration des documents — MaBiblio</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -14,16 +14,16 @@
 <body>
   <header class="site-header">
     <div class="container header-inner">
-      <a class="brand" href="/" aria-label="Accueil CampusShare"><span class="brand-mark" aria-hidden="true">✦</span><span>Campus<span class="brand-accent">Share</span></span></a>
-      <a class="text-button" href="/">← Accueil CampusShare</a>
+      <a class="brand" href="/" aria-label="Accueil MaBiblio"><span class="brand-mark" aria-hidden="true">✦</span><span>Ma<span class="brand-accent">Biblio</span></span></a>
+      <a class="text-button" href="/">← Accueil MaBiblio</a>
     </div>
   </header>
   <main class="admin-page">
     <div class="container">
-      <div class="section-heading"><div><div class="eyebrow">ADMINISTRATION CAMPUSSHARE</div><h1>Gestion des documents</h1></div></div>
+      <div class="section-heading"><div><div class="eyebrow">ADMINISTRATION MABIBLIO</div><h1>Gestion des documents</h1></div></div>
       <section class="admin-panel" id="admin-login-panel">
         <h2>Accès administrateur</h2>
-        <p>Entrez le jeton configuré dans la variable d’environnement <code>CAMPUSSHARE_ADMIN_TOKEN</code> du serveur. Il reste uniquement dans cet onglet.</p>
+        <p>Entrez le jeton configuré dans la variable d’environnement <code>MABIBLIO_ADMIN_TOKEN</code> du serveur. Il reste uniquement dans cet onglet.</p>
         <form id="admin-login"><label>Jeton administrateur<input id="admin-token" type="password" autocomplete="current-password" required></label><button class="button button-primary" type="submit">Ouvrir le tableau de bord</button></form>
       </section>
       <p class="resource-error" id="admin-error" role="alert" hidden></p>
@@ -49,6 +49,5 @@
       </section>
     </div>
   </main>
-  <footer class="site-footer"><div class="container footer-inner"><a class="brand footer-brand" href="/">Campus<span class="brand-accent">Share</span></a><p>Outils d’administration</p></div></footer>
 </body>
 </html>

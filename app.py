@@ -41,10 +41,10 @@ ALLOWED_PAGES = {
 }
 
 app = Flask(__name__, static_folder=None)
-app.secret_key = os.environ.get("CAMPUSSHARE_SESSION_SECRET") or secrets.token_hex(32)
+app.secret_key = os.environ.get("MABIBLIO_SESSION_SECRET") or os.environ.get("CAMPUSSHARE_SESSION_SECRET") or secrets.token_hex(32)
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Strict"
-app.config["SESSION_COOKIE_SECURE"] = os.environ.get("CAMPUSSHARE_HTTPS") == "1"
+app.config["SESSION_COOKIE_SECURE"] = os.environ.get("MABIBLIO_HTTPS") == "1" or os.environ.get("CAMPUSSHARE_HTTPS") == "1"
 app.config["MAX_CONTENT_LENGTH"] = MAX_REQUEST_BYTES
 INSTANCE_DIR.mkdir(exist_ok=True)
 UPLOAD_DIR.mkdir(exist_ok=True)
@@ -189,14 +189,14 @@ def api_error(message, status=400):
 def require_admin():
     if session.get("admin_authenticated") is True:
         return True
-    expected = os.environ.get("CAMPUSSHARE_ADMIN_TOKEN", "")
+    expected = os.environ.get("MABIBLIO_ADMIN_TOKEN") or os.environ.get("CAMPUSSHARE_ADMIN_TOKEN", "")
     supplied = request.headers.get("X-Admin-Token", "")
     return bool(expected) and bool(supplied) and hmac.compare_digest(expected, supplied)
 
 
 def require_admin_response():
-    if not os.environ.get("CAMPUSSHARE_ADMIN_TOKEN"):
-        return api_error("L’accès administrateur n’est pas configuré. Définissez CAMPUSSHARE_ADMIN_TOKEN avant de démarrer le serveur.", 503)
+    if not (os.environ.get("MABIBLIO_ADMIN_TOKEN") or os.environ.get("CAMPUSSHARE_ADMIN_TOKEN")):
+        return api_error("L’accès administrateur n’est pas configuré. Définissez MABIBLIO_ADMIN_TOKEN avant de démarrer le serveur.", 503)
     if not require_admin():
         return api_error("Le jeton administrateur est manquant ou invalide.", 401)
     return None
@@ -591,7 +591,7 @@ def admin_list_resources():
 
 @app.post("/api/admin/session")
 def create_admin_session():
-    if not os.environ.get("CAMPUSSHARE_ADMIN_TOKEN"):
+    if not (os.environ.get("MABIBLIO_ADMIN_TOKEN") or os.environ.get("CAMPUSSHARE_ADMIN_TOKEN")):
         return api_error("L’accès administrateur n’est pas configuré.", 503)
     if not require_admin():
         return api_error("Le jeton administrateur est manquant ou invalide.", 401)

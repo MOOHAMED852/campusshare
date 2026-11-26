@@ -1,4 +1,4 @@
-const API_BASE = window.CAMPUSSHARE_API_BASE || "";
+const API_BASE = window.MABIBLIO_API_BASE || "";
 const API_ENDPOINT = `${API_BASE}/api/resources`;
 const errorMessage = document.querySelector("#detail-error");
 const detail = document.querySelector("#resource-detail");
@@ -22,7 +22,7 @@ function getDownloadUrl(resource) {
 }
 
 function showDemoResource() {
-  document.title = "Exemple de document — CampusShare";
+  document.title = "Exemple de document — MaBiblio";
   setMetadata("#detail-category", "EXEMPLE DE PRÉSENTATION");
   setMetadata("#detail-title", "Votre document apparaîtra ici");
   setMetadata("#detail-path", "Aperçu de démonstration · Aucun document publié");
@@ -81,7 +81,7 @@ async function loadResource() {
       throw new Error("Cette ressource n’est pas approuvée.");
     }
 
-    document.title = `${resource.title || "Ressource"} — CampusShare`;
+    document.title = `${resource.title || "Ressource"} — MaBiblio`;
     const categoryLabels = { Exams: "Examens", Courses: "Cours", "TD & TP": "TD & TP" };
     setMetadata("#detail-category", categoryLabels[resource.category || resource.type] || resource.category || resource.type);
     setMetadata("#detail-title", resource.title);
