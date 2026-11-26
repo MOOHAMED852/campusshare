@@ -452,9 +452,25 @@ def list_resources():
 
     where = " AND ".join(clauses)
     with connect_db() as connection:
-        total = connection.execute(f"SELECT COUNT(*) FROM resources WHERE {where}", parameters).fetchone()[0]
+        total = connection.execute(
+            f"SELECT COUNT(DISTINCT file_name) FROM resources WHERE {where}",
+            parameters,
+        ).fetchone()[0]
         rows = connection.execute(
-            f"SELECT * FROM resources WHERE {where} ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?",
+            f"""
+            SELECT * FROM (
+                SELECT resources.*,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY file_name
+                           ORDER BY created_at DESC, id DESC
+                       ) AS duplicate_rank
+                FROM resources
+                WHERE {where}
+            )
+            WHERE duplicate_rank = 1
+            ORDER BY created_at DESC, id DESC
+            LIMIT ? OFFSET ?
+            """,
             (*parameters, limit, offset),
         ).fetchall()
     return jsonify({"resources": [serialize_resource(row) for row in rows], "total": total, "limit": limit, "offset": offset})
