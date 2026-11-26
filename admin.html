@@ -43,8 +43,36 @@
           </form>
         </div>
         <section class="admin-panel">
+          <form class="admin-form admin-resource-upload-form" id="admin-upload-form">
+            <h2>Publier un document officiel</h2>
+            <p>Les documents ajoutés ici sont approuvés immédiatement et ne nécessitent pas de contributions étudiantes pour être téléchargés. Une connexion reste requise.</p>
+            <label>Titre du document<input name="title" maxlength="180" required></label>
+            <label>Niveau académique<select name="academicLevel" id="admin-upload-level" required></select></label>
+            <label>Filière<select name="major" id="admin-upload-major" required disabled><option value="">Sélectionnez d’abord un niveau</option></select></label>
+            <label>Catégorie<select name="category" id="admin-upload-category" required><option value="">Sélectionnez une catégorie</option><option value="Exams">Examens</option><option value="Courses">Cours</option><option value="TD &amp; TP">TD &amp; TP</option></select></label>
+            <label>Année académique<select name="academicYear" id="admin-upload-year" required></select></label>
+            <label>Semestre<select name="semester" id="admin-upload-semester" required></select></label>
+            <label>Module<input name="module" maxlength="120" required></label>
+            <label>Type de document<select name="documentType" id="admin-upload-type" required><option value="">Sélectionnez d’abord une catégorie</option></select></label>
+            <label id="admin-upload-exam-wrap" hidden>Type d’examen<select name="examType" id="admin-upload-exam-type"><option value="">Sélectionnez un type d’examen</option><option value="Normal Session">Session normale</option><option value="Rattrapage">Rattrapage</option></select></label>
+            <label class="admin-upload-file">Document PDF<input type="file" name="file" accept="application/pdf,.pdf" required><small>PDF uniquement · 20 Mo maximum</small></label>
+            <label class="admin-upload-file" id="admin-upload-correction-wrap" hidden>Correction PDF facultative<input type="file" name="correction" accept="application/pdf,.pdf"><small>Disponible comme téléchargement séparé.</small></label>
+            <button class="button button-primary" type="submit">Publier immédiatement</button>
+          </form>
+          <p class="admin-upload-status" id="admin-upload-status" role="status" aria-live="polite"></p>
+        </section>
+        <section class="admin-panel">
           <div class="admin-list-heading"><h2>Documents soumis</h2><label>Statut<select id="admin-status-filter"><option value="pending">En attente</option><option value="approved">Approuvés</option><option value="rejected">Rejetés</option><option value="all">Tous les documents</option></select></label></div>
           <div id="admin-resources" class="admin-resources"></div>
+        </section>
+        <section class="admin-panel">
+          <div class="admin-list-heading admin-student-heading">
+            <h2>Comptes étudiants et activité</h2>
+            <button class="button button-secondary" id="admin-refresh-students" type="button">Actualiser</button>
+          </div>
+          <p>Les étudiants sont considérés en ligne s’ils ont eu une activité au cours des 2 dernières minutes. Le temps actif est une estimation basée sur les pages visibles. Les événements sont conservés pendant 180 jours.</p>
+          <div id="admin-students" class="admin-students"></div>
+          <section id="admin-student-activity" class="admin-student-activity" hidden></section>
         </section>
       </section>
     </div>

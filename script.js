@@ -31,6 +31,10 @@ const uploadYear = document.querySelector("#upload-year");
 const uploadCategory = document.querySelector("#upload-category");
 const uploadType = document.querySelector("#upload-type");
 const uploadExamType = document.querySelector("#upload-exam-type");
+const studentAuthView = document.querySelector("#student-auth-view");
+const studentAccountView = document.querySelector("#student-account-view");
+const studentAuthStatus = document.querySelector("#student-auth-status");
+const headerAccount = document.querySelector("#header-account");
 const menuToggle = document.querySelector(".menu-toggle");
 const mainNav = document.querySelector(".main-nav");
 
@@ -80,6 +84,86 @@ async function apiJson(url, options) {
   return payload;
 }
 
+function showStudentAuthMessage(message, isError = false) {
+  studentAuthStatus.textContent = message;
+  studentAuthStatus.dataset.state = isError ? "error" : "success";
+}
+
+function renderStudentAccount(account) {
+  const authenticated = Boolean(account.authenticated);
+  studentAuthView.hidden = authenticated;
+  studentAccountView.hidden = !authenticated;
+  uploadForm.hidden = !authenticated;
+  headerAccount.textContent = authenticated ? "Mon compte" : "Inscription / Connexion";
+  if (!authenticated) return;
+
+  document.querySelector("#student-account-username").textContent = account.username || "Étudiant";
+  document.querySelector("#student-account-email").textContent = account.email;
+  const accessMessage = document.querySelector("#student-access-message");
+  if (account.canDownloadStudentContributions) {
+    const expires = new Date(account.accessUntil).toLocaleString("fr-FR");
+    accessMessage.textContent = `Téléchargements étudiants débloqués jusqu’au ${expires}.`;
+  } else if (account.nextAccessStartsAt) {
+    const starts = new Date(account.nextAccessStartsAt).toLocaleString("fr-FR");
+    accessMessage.textContent = `Prochain accès prévu à partir du ${starts}. Vous pouvez continuer à contribuer pour préparer les renouvellements suivants.`;
+  } else {
+    accessMessage.textContent = `${account.approvedForNextAccess} PDF approuvé(s) sur ${account.requiredContributions} pour débloquer les téléchargements étudiants pendant ${account.accessDurationHours} heures. Il en reste ${account.remainingContributions}.`;
+  }
+}
+
+async function refreshStudentAccount() {
+  try {
+    const account = await apiJson("/api/student/account");
+    renderStudentAccount(account);
+    return account;
+  } catch (error) {
+    showStudentAuthMessage(`Impossible de vérifier le compte : ${error.message}`, true);
+    return null;
+  }
+}
+
+function setStudentAuthMode(mode) {
+  const register = mode === "register";
+  document.querySelector("#student-register-form").hidden = !register;
+  document.querySelector("#student-login-form").hidden = register;
+  document.querySelector("#student-register-tab").classList.toggle("active", register);
+  document.querySelector("#student-login-tab").classList.toggle("active", !register);
+  document.querySelector("#student-register-tab").setAttribute("aria-pressed", String(register));
+  document.querySelector("#student-login-tab").setAttribute("aria-pressed", String(!register));
+  showStudentAuthMessage("");
+}
+
+async function submitStudentAuth(event, endpoint) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const register = endpoint.endsWith("/register");
+  const button = form.querySelector("button[type='submit']");
+  button.disabled = true;
+  showStudentAuthMessage(register ? "Création du compte…" : "Connexion…");
+  try {
+    const values = Object.fromEntries(new FormData(form));
+    const result = await apiJson(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(values),
+    });
+    form.reset();
+    if (register) {
+      setStudentAuthMode("login");
+      showStudentAuthMessage(result.message);
+    } else {
+      showStudentAuthMessage("");
+      renderStudentAccount(result);
+      window.mabiblioStudentActivity.start();
+      await loadHomeDocuments();
+    }
+  } catch (error) {
+    showStudentAuthMessage(error.message, true);
+  } finally {
+    button.disabled = false;
+  }
+}
+
 function setOptions(select, placeholder, values, selected = "", labelMap = null) {
   const unique = [...new Set(values.filter(Boolean).map(String))];
   select.replaceChildren(new Option(placeholder, ""));
@@ -109,14 +193,24 @@ function documentCard(resource) {
   const path = [resource.academicLevel, resource.major, resource.module, resource.semester, resource.academicYear]
     .filter(Boolean).map(escapeHtml).join(" · ");
   const details = `/resource.html?id=${encodeURIComponent(resource.id)}`;
+  const locked = Boolean(resource.downloadLocked);
+  const requiresSignIn = Boolean(resource.requiresSignIn);
   const preview = escapeHtml(resource.previewUrl || "");
   const download = escapeHtml(resource.downloadUrl || "");
-  const correctionLink = resource.hasCorrection
+  const correctionLink = resource.hasCorrection && !locked && !requiresSignIn
     ? `<a class="resource-correction" href="${escapeHtml(resource.correctionDownloadUrl)}" download>Correction</a>`
     : "";
+  const cover = locked
+    ? `<div class="resource-cover resource-locked-cover"><div><strong>PDF verrouillé</strong><span>3 PDF approuvés requis</span></div></div>`
+    : `<div class="resource-cover"><iframe class="resource-preview-frame" src="${preview}#page=1&toolbar=0&navpanes=0" title="Aperçu PDF : ${title}" loading="lazy" tabindex="-1"></iframe><span class="file-type">PDF</span></div>`;
+  const downloadAction = requiresSignIn
+    ? `<a class="resource-download" href="/#upload" aria-label="Connectez-vous pour télécharger ${title}">Se connecter</a>`
+    : locked
+    ? `<a class="resource-download" href="/#upload" aria-label="Débloquer le téléchargement de ${title}">Débloquer</a>`
+    : `<a class="resource-download" href="${download}" download aria-label="Télécharger ${title}">Télécharger</a>`;
   return `<article class="resource-card">
     <a class="resource-detail-link" href="${details}" aria-label="Voir ${title}">
-      <div class="resource-cover"><iframe class="resource-preview-frame" src="${preview}#page=1&toolbar=0&navpanes=0" title="Aperçu PDF : ${title}" loading="lazy" tabindex="-1"></iframe><span class="file-type">PDF</span></div>
+      ${cover}
       <div class="resource-info">
         <div class="resource-label">${escapeHtml(documentTypeLabel(resource.documentType) || categoryLabel(resource.category))}</div>
         <h3>${title}</h3>
@@ -128,7 +222,7 @@ function documentCard(resource) {
       <span class="resource-stat" aria-label="${formatCount(resource.viewerCount)} ${resource.viewerCount === 1 ? "vue" : "vues"}"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2 10s2.8-5 8-5 8 5 8 5-2.8 5-8 5-8-5-8-5Z"/><circle cx="10" cy="10" r="2.2"/></svg>${formatCount(resource.viewerCount)}</span>
       <span class="resource-stat" aria-label="${formatCount(resource.downloadCount)} ${resource.downloadCount === 1 ? "téléchargement" : "téléchargements"}"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5v10m0 0 3.5-3.5M10 12.5 6.5 9M3.5 13v3.5h13V13"/></svg>${formatCount(resource.downloadCount)}</span>
       <a class="resource-view" href="${details}" aria-label="Voir le document ${title}">Voir</a>
-      ${correctionLink}<a class="resource-download" href="${download}" download aria-label="Télécharger ${title}">Télécharger</a>
+      ${correctionLink}${downloadAction}
     </div>
   </article>`;
 }
@@ -431,11 +525,12 @@ async function submitUpload(event) {
   try {
     const response = await fetch("/api/resources", { method: "POST", body: new FormData(uploadForm) });
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.error || `The server responded ${response.status}.`);
+    if (!response.ok) throw new Error(payload.error || `Le serveur a répondu ${response.status}.`);
     uploadStatus.textContent = "Document reçu. Il est en attente d’approbation et apparaîtra dans la bibliothèque une fois approuvé.";
     uploadForm.reset();
     await updateUploadMajors();
     updateUploadCategoryFields();
+    await refreshStudentAccount();
   } catch (error) {
     uploadStatus.textContent = `Échec du téléversement : ${error.message}`;
   } finally {
@@ -480,6 +575,30 @@ document.querySelectorAll("[data-search]").forEach((button) => {
 uploadLevel.addEventListener("change", updateUploadMajors);
 uploadCategory.addEventListener("change", updateUploadCategoryFields);
 uploadForm.addEventListener("submit", submitUpload);
+document.querySelector("#student-login-form").addEventListener("submit", (event) => {
+  submitStudentAuth(event, "/api/student/session");
+});
+document.querySelector("#student-register-form").addEventListener("submit", (event) => {
+  submitStudentAuth(event, "/api/student/register");
+});
+document.querySelector("#student-login-tab").addEventListener("click", () => setStudentAuthMode("login"));
+document.querySelector("#student-register-tab").addEventListener("click", () => setStudentAuthMode("register"));
+headerAccount.addEventListener("click", () => {
+  if (!studentAccountView.hidden) return;
+  setStudentAuthMode("register");
+});
+document.querySelector("#student-refresh-account").addEventListener("click", refreshStudentAccount);
+document.querySelector("#student-logout").addEventListener("click", async () => {
+  try {
+    await apiJson("/api/student/session", { method: "DELETE" });
+    window.mabiblioStudentActivity.stop();
+    renderStudentAccount({ authenticated: false });
+    await loadHomeDocuments();
+    showStudentAuthMessage("Vous êtes déconnecté.");
+  } catch (error) {
+    showStudentAuthMessage(error.message, true);
+  }
+});
 menuToggle.addEventListener("click", () => {
   const isOpen = menuToggle.getAttribute("aria-expanded") === "true";
   menuToggle.setAttribute("aria-expanded", String(!isOpen));
@@ -512,6 +631,13 @@ document.addEventListener("keydown", (event) => {
 loadHomeDocuments();
 loadAcademicOptions();
 loadLevels();
+refreshStudentAccount();
+const emailVerified = new URLSearchParams(window.location.search).get("emailVerified");
+if (emailVerified === "1") {
+  showStudentAuthMessage("Adresse e-mail vérifiée. Vous pouvez maintenant vous connecter.");
+} else if (emailVerified === "0") {
+  showStudentAuthMessage("Le lien de vérification est invalide ou a expiré. Créez un nouveau lien en vous inscrivant de nouveau.", true);
+}
 renderAcademicWizard();
 wireCarousel(
   document.querySelector("#home-carousel"),

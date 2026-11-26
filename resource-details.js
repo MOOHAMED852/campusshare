@@ -104,11 +104,26 @@ async function loadResource() {
     const previewUrl = getSafeUrl(resource.previewUrl);
     const previewType = String(resource.previewType || resource.fileType || "").toLowerCase();
     const preview = document.querySelector("#detail-preview");
-    if (previewUrl && (/\.pdf(?:[?#]|$)/i.test(previewUrl) || previewType.includes("pdf"))) {
+    const locked = Boolean(resource.downloadLocked);
+    const requiresSignIn = Boolean(resource.requiresSignIn);
+    if (locked) {
+      const cover = document.createElement("div");
+      cover.className = "detail-document-cover";
+      cover.textContent = "PDF verrouillé · 3 PDF approuvés requis";
+      preview.append(cover);
+      document.querySelector("#detail-access-note").hidden = false;
+      document.querySelector("#detail-access-text").textContent = requiresSignIn
+        ? "Connectez-vous pour télécharger. Les PDF étudiants nécessitent aussi trois contributions approuvées."
+        : "Trois PDF étudiants uniques approuvés sont nécessaires pour télécharger pendant 72 heures.";
+    } else if (previewUrl && (/\.pdf(?:[?#]|$)/i.test(previewUrl) || previewType.includes("pdf"))) {
       const frame = document.createElement("iframe");
       frame.src = `${previewUrl}#page=1&toolbar=0&navpanes=0`;
       frame.title = `Aperçu PDF : ${resource.title}`;
       preview.append(frame);
+      if (requiresSignIn) {
+        document.querySelector("#detail-access-note").hidden = false;
+        document.querySelector("#detail-access-text").textContent = "Connectez-vous pour télécharger ce PDF.";
+      }
     } else if (previewUrl && (/\.(png|jpe?g|webp|gif|svg)(?:[?#]|$)/i.test(previewUrl) || previewType.includes("image"))) {
       const image = document.createElement("img");
       image.src = previewUrl;
@@ -122,11 +137,15 @@ async function loadResource() {
     }
 
     const downloadLink = document.querySelector("#detail-download");
-    const url = getDownloadUrl(resource);
-    if (!url) throw new Error("Le lien de téléchargement de cette ressource est invalide.");
-    downloadLink.href = url;
-    downloadLink.setAttribute("download", "");
-    if (resource.hasCorrection && getSafeUrl(resource.correctionDownloadUrl)) {
+    if (locked || requiresSignIn) {
+      downloadLink.hidden = true;
+    } else {
+      const url = getDownloadUrl(resource);
+      if (!url) throw new Error("Le lien de téléchargement de cette ressource est invalide.");
+      downloadLink.href = url;
+      downloadLink.setAttribute("download", "");
+    }
+    if (!locked && !requiresSignIn && resource.hasCorrection && getSafeUrl(resource.correctionDownloadUrl)) {
       const correctionLink = document.querySelector("#detail-correction");
       correctionLink.href = getSafeUrl(resource.correctionDownloadUrl);
       correctionLink.setAttribute("download", "");

@@ -60,18 +60,28 @@ function resourceCard(resource) {
   const title = escapeHtml(resource.title);
   const path = [resource.academicLevel, resource.major, resource.module, resource.semester, resource.academicYear]
     .filter(Boolean).map(escapeHtml).join(" · ");
-  const correctionLink = resource.hasCorrection
+  const locked = Boolean(resource.downloadLocked);
+  const requiresSignIn = Boolean(resource.requiresSignIn);
+  const correctionLink = resource.hasCorrection && !locked && !requiresSignIn
     ? `<a class="resource-correction" href="${escapeHtml(resource.correctionDownloadUrl)}" download>Correction</a>`
     : "";
+  const cover = locked
+    ? `<div class="resource-cover resource-locked-cover"><div><strong>PDF verrouillé</strong><span>3 PDF approuvés requis</span></div></div>`
+    : `<div class="resource-cover"><iframe class="resource-preview-frame" src="${escapeHtml(resource.previewUrl)}#page=1&toolbar=0&navpanes=0" title="Aperçu PDF : ${title}" loading="lazy" tabindex="-1"></iframe><span class="file-type">PDF</span></div>`;
+  const downloadAction = requiresSignIn
+    ? `<a class="resource-download" href="/#upload" aria-label="Connectez-vous pour télécharger ${title}">Se connecter</a>`
+    : locked
+    ? `<a class="resource-download" href="/#upload" aria-label="Débloquer le téléchargement de ${title}">Débloquer</a>`
+    : `<a class="resource-download" href="${escapeHtml(resource.downloadUrl)}" download aria-label="Télécharger ${title}">Télécharger</a>`;
   return `<article class="resource-card">
     <a class="resource-detail-link" href="/resource.html?id=${encodeURIComponent(resource.id)}" aria-label="Voir ${title}">
-      <div class="resource-cover"><iframe class="resource-preview-frame" src="${escapeHtml(resource.previewUrl)}#page=1&toolbar=0&navpanes=0" title="Aperçu PDF : ${title}" loading="lazy" tabindex="-1"></iframe><span class="file-type">PDF</span></div>
+      ${cover}
       <div class="resource-info"><div class="resource-label">${escapeHtml(documentTypeLabel(resource.documentType) || categoryLabel(resource.category))}</div><h3>${title}</h3><p class="resource-academic-path">${path}</p>${resource.examType ? `<p class="resource-module">${escapeHtml(resource.examType === "Normal Session" ? "Session normale" : "Rattrapage")}</p>` : ""}</div>
     </a>
     <div class="resource-card-footer">
       <span class="resource-stat" aria-label="${resource.viewerCount} vues"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2 10s2.8-5 8-5 8 5 8 5-2.8 5-8 5-8-5-8-5Z"/><circle cx="10" cy="10" r="2.2"/></svg>${resource.viewerCount}</span>
       <span class="resource-stat" aria-label="${resource.downloadCount} téléchargements"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5v10m0 0 3.5-3.5M10 12.5 6.5 9M3.5 13v3.5h13V13"/></svg>${resource.downloadCount}</span>
-      ${correctionLink}<a class="resource-download" href="${escapeHtml(resource.downloadUrl)}" download aria-label="Télécharger ${title}">Télécharger</a>
+      ${correctionLink}${downloadAction}
     </div>
   </article>`;
 }

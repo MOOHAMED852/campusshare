@@ -1,15 +1,29 @@
+import hashlib
 import hmac
+import io
 import os
 import re
 import secrets
+import smtplib
 import sqlite3
 import uuid
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from email.message import EmailMessage
 from pathlib import Path
+from urllib.parse import quote
 
-from flask import Flask, abort, jsonify, request, send_file, send_from_directory, session
+from flask import Flask, abort, jsonify, redirect, request, send_file, send_from_directory, session
+from pypdf import PdfReader
+from pypdf.errors import FileNotDecryptedError, PdfReadError, PdfStreamError
+from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
+
+from student_activity import (
+    create_student_activity_blueprint,
+    initialize_student_activity_schema,
+    record_student_activity,
+)
 
 
 ROOT = Path(__file__).resolve().parent
@@ -28,6 +42,9 @@ DOCUMENT_TYPES = {
 ACADEMIC_YEARS = ("2025–2026", "2024–2025", "2023–2024", "2022–2023")
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 MAX_REQUEST_BYTES = 2 * MAX_UPLOAD_BYTES + 1024 * 1024
+REQUIRED_STUDENT_CONTRIBUTIONS = 3
+STUDENT_ACCESS_DURATION = timedelta(days=3)
+EMAIL_VERIFICATION_DURATION = timedelta(hours=24)
 ALLOWED_PAGES = {
     "index.html",
     "resource.html",
@@ -38,6 +55,7 @@ ALLOWED_PAGES = {
     "resource-details.js",
     "library.js",
     "admin.js",
+    "activity.js",
 }
 
 app = Flask(__name__, static_folder=None)
@@ -48,6 +66,81 @@ app.config["SESSION_COOKIE_SECURE"] = os.environ.get("MABIBLIO_HTTPS") == "1" or
 app.config["MAX_CONTENT_LENGTH"] = MAX_REQUEST_BYTES
 INSTANCE_DIR.mkdir(exist_ok=True)
 UPLOAD_DIR.mkdir(exist_ok=True)
+
+
+def normalized_pdf_filename(filename):
+    return secure_filename(filename).casefold()
+
+
+def inspect_pdf(data):
+    digest = hashlib.sha256(data).hexdigest()
+    try:
+        reader = PdfReader(io.BytesIO(data), strict=False)
+    except (PdfReadError, PdfStreamError, ValueError, OSError) as error:
+        raise ValueError("Le fichier téléversé n’est pas un PDF lisible.") from error
+    if reader.is_encrypted:
+        raise ValueError("Les PDF protégés par mot de passe ne sont pas acceptés.")
+    try:
+        page_count = len(reader.pages)
+    except (FileNotDecryptedError, PdfReadError, PdfStreamError, ValueError, OSError) as error:
+        raise ValueError("Le fichier téléversé n’est pas un PDF lisible.") from error
+    if page_count < 1:
+        raise ValueError("Le PDF doit contenir au moins une page.")
+    return digest, page_count
+
+
+def backfill_pdf_metadata(connection):
+    rows = connection.execute(
+        """
+        SELECT id, file_path, file_name FROM resources
+        WHERE file_size IS NULL OR file_name_normalized IS NULL
+        """
+    ).fetchall()
+    for row in rows:
+        path = UPLOAD_DIR / row["file_path"]
+        if not path.is_file():
+            raise FileNotFoundError(f"Le PDF référencé par la ressource {row['id']} est introuvable : {path}")
+        connection.execute(
+            """
+            UPDATE resources
+            SET file_size = COALESCE(file_size, ?),
+                file_name_normalized = COALESCE(file_name_normalized, ?)
+            WHERE id = ?
+            """,
+            (path.stat().st_size, normalized_pdf_filename(row["file_name"]), row["id"]),
+        )
+
+
+def backfill_matching_pdf_hashes(connection, file_size):
+    rows = connection.execute(
+        "SELECT id, file_path FROM resources WHERE file_size = ? AND file_sha256 IS NULL",
+        (file_size,),
+    ).fetchall()
+    for row in rows:
+        path = UPLOAD_DIR / row["file_path"]
+        if not path.is_file():
+            raise FileNotFoundError(f"Le PDF référencé par la ressource {row['id']} est introuvable : {path}")
+        digest = hashlib.sha256()
+        with path.open("rb") as source:
+            for chunk in iter(lambda: source.read(1024 * 1024), b""):
+                digest.update(chunk)
+        connection.execute("UPDATE resources SET file_sha256 = ? WHERE id = ?", (digest.hexdigest(), row["id"]))
+
+
+def backfill_matching_pdf_page_counts(connection, normalized_filename):
+    rows = connection.execute(
+        """
+        SELECT id, file_path FROM resources
+        WHERE file_name_normalized = ? AND page_count IS NULL
+        """,
+        (normalized_filename,),
+    ).fetchall()
+    for row in rows:
+        path = UPLOAD_DIR / row["file_path"]
+        if not path.is_file():
+            raise FileNotFoundError(f"Le PDF référencé par la ressource {row['id']} est introuvable : {path}")
+        _, page_count = inspect_pdf(path.read_bytes())
+        connection.execute("UPDATE resources SET page_count = ? WHERE id = ?", (page_count, row["id"]))
 
 
 @contextmanager
@@ -79,6 +172,23 @@ def initialize_db():
                 year TEXT PRIMARY KEY,
                 active INTEGER NOT NULL DEFAULT 1
             );
+            CREATE TABLE IF NOT EXISTS students (
+                id INTEGER PRIMARY KEY,
+                username TEXT,
+                email TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                email_verified_at TEXT,
+                verification_token_hash TEXT,
+                verification_expires_at TEXT,
+                created_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS student_access_grants (
+                id INTEGER PRIMARY KEY,
+                student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+                starts_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
             CREATE TABLE IF NOT EXISTS resources (
                 id INTEGER PRIMARY KEY,
                 title TEXT NOT NULL,
@@ -98,11 +208,28 @@ def initialize_db():
                 viewer_count INTEGER NOT NULL DEFAULT 0,
                 download_count INTEGER NOT NULL DEFAULT 0,
                 correction_download_count INTEGER NOT NULL DEFAULT 0,
+                owner_id INTEGER REFERENCES students(id),
+                access_grant_id INTEGER REFERENCES student_access_grants(id),
+                file_sha256 TEXT,
+                file_name_normalized TEXT,
+                page_count INTEGER,
+                file_size INTEGER,
                 created_at TEXT NOT NULL
             );
             CREATE INDEX IF NOT EXISTS resources_public_browse
                 ON resources (status, academic_level, major, category, academic_year, semester, module);
+            CREATE INDEX IF NOT EXISTS student_access_grants_owner_expiry
+                ON student_access_grants (student_id, starts_at, expires_at);
             """
+        )
+        student_columns = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(students)").fetchall()
+        }
+        if "username" not in student_columns:
+            connection.execute("ALTER TABLE students ADD COLUMN username TEXT")
+        connection.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS students_username_unique ON students (username COLLATE NOCASE) WHERE username IS NOT NULL"
         )
         resource_columns = {
             row["name"]
@@ -112,6 +239,24 @@ def initialize_db():
             connection.execute(
                 "ALTER TABLE resources ADD COLUMN correction_download_count INTEGER NOT NULL DEFAULT 0"
             )
+        resource_migrations = {
+            "owner_id": "INTEGER REFERENCES students(id)",
+            "access_grant_id": "INTEGER REFERENCES student_access_grants(id)",
+            "file_sha256": "TEXT",
+            "file_name_normalized": "TEXT",
+            "page_count": "INTEGER",
+            "file_size": "INTEGER",
+        }
+        for column, definition in resource_migrations.items():
+            if column not in resource_columns:
+                connection.execute(f"ALTER TABLE resources ADD COLUMN {column} {definition}")
+        initialize_student_activity_schema(connection)
+        connection.execute("CREATE INDEX IF NOT EXISTS resources_file_sha256 ON resources (file_sha256)")
+        connection.execute("CREATE INDEX IF NOT EXISTS resources_file_size ON resources (file_size)")
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS resources_normalized_name_pages ON resources (file_name_normalized, page_count)"
+        )
+        backfill_pdf_metadata(connection)
         connection.executemany(
             "INSERT OR IGNORE INTO academic_years (year) VALUES (?)",
             ((year,) for year in ACADEMIC_YEARS),
@@ -202,6 +347,143 @@ def require_admin_response():
     return None
 
 
+def student_session_id():
+    student_id = session.get("student_id")
+    return student_id if isinstance(student_id, int) else None
+
+
+def has_student_download_access(student_id):
+    now = datetime.now(timezone.utc).isoformat()
+    with connect_db() as connection:
+        grant = connection.execute(
+            """
+            SELECT 1 FROM student_access_grants
+            WHERE student_id = ? AND starts_at <= ? AND expires_at > ?
+            LIMIT 1
+            """,
+            (student_id, now, now),
+        ).fetchone()
+    return grant is not None
+
+
+def student_account_status(student_id):
+    now = datetime.now(timezone.utc).isoformat()
+    with connect_db() as connection:
+        student = connection.execute(
+            "SELECT id,username,email,email_verified_at FROM students WHERE id = ?",
+            (student_id,),
+        ).fetchone()
+        if not student:
+            return {"authenticated": False}
+        approved_count = connection.execute(
+            """
+            SELECT COUNT(DISTINCT file_sha256) FROM resources
+            WHERE owner_id = ? AND status = 'approved'
+              AND access_grant_id IS NULL AND file_sha256 IS NOT NULL
+            """,
+            (student_id,),
+        ).fetchone()[0]
+        active_grant = connection.execute(
+            """
+            SELECT expires_at FROM student_access_grants
+            WHERE student_id = ? AND starts_at <= ? AND expires_at > ?
+            ORDER BY expires_at DESC LIMIT 1
+            """,
+            (student_id, now, now),
+        ).fetchone()
+        next_grant = connection.execute(
+            """
+            SELECT starts_at,expires_at FROM student_access_grants
+            WHERE student_id = ? AND starts_at > ?
+            ORDER BY starts_at LIMIT 1
+            """,
+            (student_id, now),
+        ).fetchone()
+    return {
+        "authenticated": True,
+        "username": student["username"],
+        "email": student["email"],
+        "approvedForNextAccess": approved_count,
+        "remainingContributions": max(REQUIRED_STUDENT_CONTRIBUTIONS - approved_count, 0),
+        "requiredContributions": REQUIRED_STUDENT_CONTRIBUTIONS,
+        "accessDurationHours": int(STUDENT_ACCESS_DURATION.total_seconds() // 3600),
+        "canDownloadStudentContributions": active_grant is not None,
+        "accessUntil": active_grant["expires_at"] if active_grant else None,
+        "nextAccessStartsAt": next_grant["starts_at"] if next_grant else None,
+    }
+
+
+def grant_eligible_student_access(connection, student_id):
+    created_grants = []
+    while True:
+        contributions = connection.execute(
+            """
+            SELECT MIN(id) AS resource_id, file_sha256
+            FROM resources
+            WHERE owner_id = ? AND status = 'approved'
+              AND access_grant_id IS NULL AND file_sha256 IS NOT NULL
+            GROUP BY file_sha256
+            ORDER BY MIN(id)
+            LIMIT ?
+            """,
+            (student_id, REQUIRED_STUDENT_CONTRIBUTIONS),
+        ).fetchall()
+        if len(contributions) < REQUIRED_STUDENT_CONTRIBUTIONS:
+            return created_grants
+        now = datetime.now(timezone.utc)
+        previous_expiry = connection.execute(
+            "SELECT MAX(expires_at) FROM student_access_grants WHERE student_id = ?",
+            (student_id,),
+        ).fetchone()[0]
+        starts_at = now
+        if previous_expiry:
+            starts_at = max(starts_at, datetime.fromisoformat(previous_expiry))
+        expires_at = starts_at + STUDENT_ACCESS_DURATION
+        cursor = connection.execute(
+            """
+            INSERT INTO student_access_grants (student_id, starts_at, expires_at, created_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (student_id, starts_at.isoformat(), expires_at.isoformat(), now.isoformat()),
+        )
+        grant_id = cursor.lastrowid
+        connection.executemany(
+            "UPDATE resources SET access_grant_id = ? WHERE id = ?",
+            ((grant_id, row["resource_id"]) for row in contributions),
+        )
+        created_grants.append({"startsAt": starts_at.isoformat(), "expiresAt": expires_at.isoformat()})
+
+
+def send_student_verification_email(email, token):
+    host = os.environ.get("MABIBLIO_SMTP_HOST", "").strip()
+    sender = os.environ.get("MABIBLIO_FROM_EMAIL", "").strip()
+    if not host or not sender:
+        raise RuntimeError("La vérification par e-mail n’est pas configurée sur le serveur.")
+    try:
+        port = int(os.environ.get("MABIBLIO_SMTP_PORT", "587"))
+        message = EmailMessage()
+        message["Subject"] = "Vérifiez votre adresse e-mail — MaBiblio"
+        message["From"] = sender
+        message["To"] = email
+        base_url = os.environ.get("MABIBLIO_PUBLIC_URL", "http://127.0.0.1:8000").rstrip("/")
+        verification_url = f"{base_url}/api/student/verify?token={quote(token)}"
+        message.set_content(
+            f"Confirmez votre adresse e-mail en ouvrant ce lien (valable 24 heures) :\n{verification_url}\n"
+        )
+        username = os.environ.get("MABIBLIO_SMTP_USERNAME", "")
+        password = os.environ.get("MABIBLIO_SMTP_PASSWORD", "")
+        if bool(username) != bool(password):
+            raise RuntimeError("Le nom d’utilisateur et le mot de passe SMTP doivent être configurés ensemble.")
+        with smtplib.SMTP(host, port, timeout=15) as smtp:
+            if os.environ.get("MABIBLIO_SMTP_STARTTLS", "1") != "0":
+                smtp.starttls()
+            if username:
+                smtp.login(username, password)
+            smtp.send_message(message)
+    except (OSError, smtplib.SMTPException, ValueError) as error:
+        raise RuntimeError("Impossible d’envoyer l’e-mail de vérification. Vérifiez la configuration SMTP.") from error
+
+
 def normalize_category(value):
     aliases = {
         "exams": "Exams",
@@ -243,6 +525,7 @@ def serialize_resource(row, include_status=False):
     if include_status:
         result["status"] = row["status"]
         result["fileName"] = row["file_name"]
+        result["submittedBy"] = row["student_email"] if "student_email" in row.keys() else None
     else:
         result["status"] = "approved"
     return result
@@ -268,11 +551,12 @@ def store_pdf(upload, prefix):
         raise ValueError("Chaque PDF doit faire 20 Mo ou moins.")
     if not data.startswith(b"%PDF-"):
         raise ValueError("Le fichier téléversé n’est pas un PDF valide.")
+    digest, page_count = inspect_pdf(data)
     relative_path = f"{uuid.uuid4().hex}-{prefix}.pdf"
     destination = UPLOAD_DIR / relative_path
     with destination.open("wb") as target:
         target.write(data)
-    return relative_path, original_name
+    return relative_path, original_name, digest, page_count
 
 
 def validate_resource_form(form):
@@ -376,6 +660,149 @@ def get_academic_years():
     return jsonify({"academicYears": [row["year"] for row in rows]})
 
 
+@app.post("/api/student/register")
+def register_student():
+    values = request.get_json(silent=True) or request.form
+    username = str(values.get("username", "")).strip()
+    email = str(values.get("email", "")).strip().lower()
+    password = str(values.get("password", ""))
+    if not re.fullmatch(r"[A-Za-z0-9._-]{3,32}", username):
+        return api_error("Le nom d’utilisateur doit contenir 3 à 32 lettres, chiffres, points, tirets ou soulignés.")
+    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email) or len(email) > 254:
+        return api_error("Saisissez une adresse e-mail valide, personnelle ou institutionnelle.")
+    if len(password) < 12 or len(password) > 128:
+        return api_error("Le mot de passe doit contenir entre 12 et 128 caractères.")
+    if not os.environ.get("MABIBLIO_SMTP_HOST") or not os.environ.get("MABIBLIO_FROM_EMAIL"):
+        return api_error("La vérification par e-mail n’est pas encore configurée sur le serveur.", 503)
+
+    token = secrets.token_urlsafe(32)
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    now = datetime.now(timezone.utc)
+    try:
+        with connect_db() as connection:
+            username_owner = connection.execute(
+                "SELECT 1 FROM students WHERE username = ? COLLATE NOCASE AND email != ? LIMIT 1",
+                (username, email),
+            ).fetchone()
+            if username_owner:
+                return api_error("Ce nom d’utilisateur est déjà utilisé.", 409)
+            student = connection.execute(
+                "SELECT id,email_verified_at FROM students WHERE email = ?",
+                (email,),
+            ).fetchone()
+            if student and student["email_verified_at"]:
+                return api_error("Un compte existe déjà pour cette adresse e-mail.", 409)
+            if student:
+                connection.execute(
+                    """
+                    UPDATE students
+                    SET username = ?, password_hash = ?, verification_token_hash = ?,
+                        verification_expires_at = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        username,
+                        generate_password_hash(password),
+                        token_hash,
+                        (now + EMAIL_VERIFICATION_DURATION).isoformat(),
+                        student["id"],
+                    ),
+                )
+            else:
+                connection.execute(
+                    """
+                    INSERT INTO students (
+                        username, email, password_hash, verification_token_hash,
+                        verification_expires_at, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        username,
+                        email,
+                        generate_password_hash(password),
+                        token_hash,
+                        (now + EMAIL_VERIFICATION_DURATION).isoformat(),
+                        now.isoformat(),
+                    ),
+                )
+    except sqlite3.IntegrityError:
+        return api_error("Ce nom d’utilisateur ou cette adresse e-mail est déjà utilisé.", 409)
+    try:
+        send_student_verification_email(email, token)
+    except RuntimeError as error:
+        return api_error(str(error), 503)
+    return jsonify({"message": "Un lien de vérification a été envoyé par e-mail."}), 202
+
+
+@app.get("/api/student/verify")
+def verify_student_email():
+    token = request.args.get("token", "")
+    if not token:
+        return redirect("/?emailVerified=0#upload")
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    now = datetime.now(timezone.utc).isoformat()
+    with connect_db() as connection:
+        result = connection.execute(
+            """
+            UPDATE students
+            SET email_verified_at = ?, verification_token_hash = NULL, verification_expires_at = NULL
+            WHERE verification_token_hash = ? AND verification_expires_at > ? AND email_verified_at IS NULL
+            """,
+            (now, token_hash, now),
+        )
+    return redirect("/?emailVerified=1#upload" if result.rowcount == 1 else "/?emailVerified=0#upload")
+
+
+@app.get("/api/student/account")
+def get_student_account():
+    student_id = student_session_id()
+    if student_id is None:
+        return jsonify({"authenticated": False})
+    status = student_account_status(student_id)
+    if not status["authenticated"]:
+        session.pop("student_id", None)
+    return jsonify(status)
+
+
+@app.post("/api/student/session")
+def create_student_session():
+    values = request.get_json(silent=True) or request.form
+    identifier = str(values.get("identifier") or values.get("email") or values.get("username") or "").strip()
+    normalized_identifier = identifier.lower()
+    password = str(values.get("password", ""))
+    with connect_db() as connection:
+        student = connection.execute(
+            """
+            SELECT id,password_hash,email_verified_at FROM students
+            WHERE email = ? OR username = ? COLLATE NOCASE
+            """,
+            (normalized_identifier, identifier),
+        ).fetchone()
+    if not student or not check_password_hash(student["password_hash"], password):
+        return api_error("Adresse e-mail ou mot de passe incorrect.", 401)
+    if not student["email_verified_at"]:
+        return api_error("Vérifiez votre adresse e-mail avant de vous connecter.", 403)
+    session.clear()
+    session["student_id"] = student["id"]
+    with connect_db() as connection:
+        record_student_activity(connection, student["id"], "sign_in")
+    return jsonify(student_account_status(student["id"]))
+
+
+@app.delete("/api/student/session")
+def destroy_student_session():
+    student_id = student_session_id()
+    if student_id is not None:
+        with connect_db() as connection:
+            record_student_activity(connection, student_id, "sign_out")
+            connection.execute(
+                "UPDATE students SET last_activity_ping_at = NULL WHERE id = ?",
+                (student_id,),
+            )
+    session.pop("student_id", None)
+    return jsonify({"authenticated": False})
+
+
 @app.get("/api/filters")
 def get_filters():
     level = request.args.get("academicLevel", "")
@@ -473,37 +900,83 @@ def list_resources():
             """,
             (*parameters, limit, offset),
         ).fetchall()
-    return jsonify({"resources": [serialize_resource(row) for row in rows], "total": total, "limit": limit, "offset": offset})
+    student_id = student_session_id()
+    student_signed_in = student_id is not None and student_account_status(student_id)["authenticated"]
+    if student_id is not None and not student_signed_in:
+        session.pop("student_id", None)
+    can_download_student_resources = False
+    if student_id is not None and student_signed_in:
+        can_download_student_resources = has_student_download_access(student_id)
+    resources = []
+    for row in rows:
+        resource = serialize_resource(row)
+        resource["studentContribution"] = row["owner_id"] is not None
+        resource["downloadLocked"] = row["owner_id"] is not None and not can_download_student_resources
+        resource["requiresSignIn"] = not student_signed_in
+        resources.append(resource)
+    return jsonify({"resources": resources, "total": total, "limit": limit, "offset": offset})
 
 
 @app.post("/api/resources")
 def upload_resource():
     file_path = correction_path = None
     try:
+        student_id = student_session_id()
+        if student_id is None:
+            return api_error("Connectez-vous avec un compte étudiant vérifié pour proposer un document.", 401)
+        if not student_account_status(student_id)["authenticated"]:
+            session.pop("student_id", None)
+            return api_error("La session étudiant est invalide. Connectez-vous de nouveau.", 401)
         values = validate_resource_form(request.form)
         correction_file = request.files.get("correction")
         if correction_file and correction_file.filename and values["category"] != "Exams":
             return api_error("Une correction PDF supplémentaire n’est acceptée que pour les examens.")
-        file_path, file_name = store_pdf(request.files.get("file"), "document")
+        file_path, file_name, file_sha256, page_count = store_pdf(request.files.get("file"), "document")
+        file_size = (UPLOAD_DIR / file_path).stat().st_size
         correction_name = None
         if correction_file and correction_file.filename:
-            correction_path, correction_name = store_pdf(correction_file, "correction")
+            correction_path, correction_name, _, _ = store_pdf(correction_file, "correction")
         created_at = datetime.now(timezone.utc).isoformat()
         try:
             with connect_db() as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                backfill_matching_pdf_hashes(connection, file_size)
+                backfill_matching_pdf_page_counts(connection, normalized_pdf_filename(file_name))
+                duplicate = connection.execute(
+                    """
+                    SELECT id FROM resources
+                    WHERE file_sha256 = ?
+                       OR (file_name_normalized = ? AND page_count = ?)
+                    LIMIT 1
+                    """,
+                    (file_sha256, normalized_pdf_filename(file_name), page_count),
+                ).fetchone()
+                if duplicate:
+                    if file_path:
+                        (UPLOAD_DIR / file_path).unlink(missing_ok=True)
+                        file_path = None
+                    if correction_path:
+                        (UPLOAD_DIR / correction_path).unlink(missing_ok=True)
+                        correction_path = None
+                    return api_error(
+                        "Ce PDF existe déjà sur le site (contenu identique, ou même nom et nombre de pages).",
+                        409,
+                    )
                 cursor = connection.execute(
                     """
                     INSERT INTO resources (
                         title, academic_level, major, category, academic_year, semester,
                         module, document_type, exam_type, file_path, file_name,
-                        correction_path, correction_name, created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        correction_path, correction_name, owner_id, file_sha256,
+                        file_name_normalized, page_count, file_size, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         values["title"], values["academic_level"], values["major"], values["category"],
                         values["academic_year"], values["semester"], values["module"],
                         values["document_type"], values["exam_type"], file_path, file_name,
-                        correction_path, correction_name, created_at,
+                        correction_path, correction_name, student_id, file_sha256,
+                        normalized_pdf_filename(file_name), page_count, file_size, created_at,
                     ),
                 )
                 resource_id = cursor.lastrowid
@@ -513,7 +986,12 @@ def upload_resource():
             if correction_path:
                 (UPLOAD_DIR / correction_path).unlink(missing_ok=True)
             raise
-        return jsonify({"message": "Document reçu et en attente d’approbation par l’administrateur.", "status": "pending", "id": resource_id}), 201
+        return jsonify({
+            "message": "Document reçu et en attente d’approbation. Il comptera après validation de l’administrateur.",
+            "status": "pending",
+            "id": resource_id,
+            "pageCount": page_count,
+        }), 201
     except ValueError as error:
         if file_path:
             (UPLOAD_DIR / file_path).unlink(missing_ok=True)
@@ -533,13 +1011,38 @@ def resource_details(resource_id):
             return api_error("Ressource introuvable.", 404)
         connection.execute("UPDATE resources SET viewer_count = viewer_count + 1 WHERE id = ?", (resource_id,))
         row = connection.execute("SELECT * FROM resources WHERE id = ?", (resource_id,)).fetchone()
-    return jsonify({"resource": serialize_resource(row)})
+    resource = serialize_resource(row)
+    student_id = student_session_id()
+    student_signed_in = student_id is not None and student_account_status(student_id)["authenticated"]
+    if student_id is not None and not student_signed_in:
+        session.pop("student_id", None)
+    can_download = False
+    if student_id is not None and student_signed_in:
+        can_download = has_student_download_access(student_id)
+    resource["studentContribution"] = row["owner_id"] is not None
+    resource["downloadLocked"] = row["owner_id"] is not None and not can_download
+    resource["requiresSignIn"] = not student_signed_in
+    return jsonify({"resource": resource})
 
 
 def send_resource_file(resource_id, field, filename_field, as_attachment):
     row = get_resource(resource_id)
     if not row:
         abort(404)
+    student_id = student_session_id()
+    student_signed_in = student_id is not None and student_account_status(student_id)["authenticated"]
+    if student_id is not None and not student_signed_in:
+        session.pop("student_id", None)
+    if as_attachment and not student_signed_in:
+        return api_error("Connectez-vous avec un compte étudiant vérifié pour télécharger un document.", 401)
+    if row["owner_id"] is not None:
+        if student_id is None or not student_signed_in:
+            return api_error("Connectez-vous pour accéder aux documents partagés par les étudiants.", 401)
+        if not has_student_download_access(student_id):
+            return api_error(
+                "Les téléchargements des documents étudiants nécessitent trois contributions uniques approuvées, avec un accès actif.",
+                403,
+            )
     relative_path = row[field]
     if not relative_path:
         abort(404)
@@ -552,6 +1055,12 @@ def send_resource_file(resource_id, field, filename_field, as_attachment):
             connection.execute(
                 f"UPDATE resources SET {count_column} = {count_column} + 1 WHERE id = ? AND status = 'approved'",
                 (resource_id,),
+            )
+            record_student_activity(
+                connection,
+                student_id,
+                "correction_download" if field == "correction_path" else "download",
+                row["title"],
             )
     return send_file(path, mimetype="application/pdf", as_attachment=as_attachment, download_name=row[filename_field])
 
@@ -591,7 +1100,11 @@ def admin_list_resources():
         return api_error("Statut de document inconnu.")
     with connect_db() as connection:
         rows = connection.execute(
-            "SELECT * FROM resources" + ("" if status == "all" else " WHERE status = ?") + " ORDER BY created_at DESC",
+            """
+            SELECT resources.*, students.email AS student_email
+            FROM resources
+            LEFT JOIN students ON students.id = resources.owner_id
+            """ + ("" if status == "all" else " WHERE resources.status = ?") + " ORDER BY resources.created_at DESC",
             () if status == "all" else (status,),
         ).fetchall()
     resources = []
@@ -603,6 +1116,63 @@ def admin_list_resources():
             resource["correctionDownloadUrl"] = f"/api/admin/resources/{row['id']}/correction/download"
         resources.append(resource)
     return jsonify({"resources": resources})
+
+
+@app.post("/api/admin/resources")
+def admin_upload_resource():
+    error = require_admin_response()
+    if error:
+        return error
+    file_path = correction_path = None
+    try:
+        values = validate_resource_form(request.form)
+        correction_file = request.files.get("correction")
+        if correction_file and correction_file.filename and values["category"] != "Exams":
+            return api_error("Une correction PDF supplémentaire n’est acceptée que pour les examens.")
+        file_path, file_name, file_sha256, page_count = store_pdf(request.files.get("file"), "document")
+        file_size = (UPLOAD_DIR / file_path).stat().st_size
+        correction_name = None
+        if correction_file and correction_file.filename:
+            correction_path, correction_name, _, _ = store_pdf(correction_file, "correction")
+        created_at = datetime.now(timezone.utc).isoformat()
+        try:
+            with connect_db() as connection:
+                cursor = connection.execute(
+                    """
+                    INSERT INTO resources (
+                        title, academic_level, major, category, academic_year, semester,
+                        module, document_type, exam_type, file_path, file_name,
+                        correction_path, correction_name, file_sha256, file_name_normalized,
+                        page_count, file_size, status, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', ?)
+                    """,
+                    (
+                        values["title"], values["academic_level"], values["major"], values["category"],
+                        values["academic_year"], values["semester"], values["module"],
+                        values["document_type"], values["exam_type"], file_path, file_name,
+                        correction_path, correction_name, file_sha256,
+                        normalized_pdf_filename(file_name), page_count, file_size, created_at,
+                    ),
+                )
+                resource_id = cursor.lastrowid
+        except Exception:
+            if file_path:
+                (UPLOAD_DIR / file_path).unlink(missing_ok=True)
+            if correction_path:
+                (UPLOAD_DIR / correction_path).unlink(missing_ok=True)
+            raise
+        return jsonify({
+            "id": resource_id,
+            "status": "approved",
+            "message": "Document publié directement sur le site.",
+            "pageCount": page_count,
+        }), 201
+    except ValueError as validation_error:
+        if file_path:
+            (UPLOAD_DIR / file_path).unlink(missing_ok=True)
+        if correction_path:
+            (UPLOAD_DIR / correction_path).unlink(missing_ok=True)
+        return api_error(str(validation_error))
 
 
 @app.post("/api/admin/session")
@@ -653,10 +1223,12 @@ def review_resource(resource_id):
     if status not in ("approved", "rejected"):
         return api_error("Le statut de vérification doit être approuvé ou rejeté.")
     with connect_db() as connection:
-        result = connection.execute("UPDATE resources SET status = ? WHERE id = ?", (status, resource_id))
-        if result.rowcount == 0:
+        row = connection.execute("SELECT owner_id FROM resources WHERE id = ?", (resource_id,)).fetchone()
+        if not row:
             return api_error("Ressource introuvable.", 404)
-    return jsonify({"id": resource_id, "status": status})
+        connection.execute("UPDATE resources SET status = ? WHERE id = ?", (status, resource_id))
+        grants = grant_eligible_student_access(connection, row["owner_id"]) if status == "approved" and row["owner_id"] else []
+    return jsonify({"id": resource_id, "status": status, "accessGrants": grants})
 
 
 @app.post("/api/admin/resources/<int:resource_id>/correction")
@@ -670,7 +1242,7 @@ def add_correction(resource_id):
     if row["category"] != "Exams":
         return api_error("Les corrections PDF ne peuvent être jointes qu’à des examens.")
     try:
-        file_path, file_name = store_pdf(request.files.get("correction"), "correction")
+        file_path, file_name, _, _ = store_pdf(request.files.get("correction"), "correction")
     except ValueError as validation_error:
         return api_error(str(validation_error))
     try:
@@ -735,6 +1307,11 @@ def add_academic_year():
     except sqlite3.IntegrityError:
         return api_error("Cette année académique existe déjà.", 409)
     return jsonify({"year": year}), 201
+
+
+app.register_blueprint(
+    create_student_activity_blueprint(connect_db, require_admin_response, student_session_id)
+)
 
 
 if __name__ == "__main__":

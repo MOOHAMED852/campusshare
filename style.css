@@ -48,7 +48,8 @@ a { color: inherit; text-decoration: none; }
 .home-site-header .main-nav.open { display: flex; }
 .home-site-header .nav-link { padding: 12px; border-radius: 7px; }
 .home-site-header .nav-link:hover { background: #f3f6fa; }
-.home-site-header .header-upload { margin: 0 14px 0 auto; padding: 14px 20px; font-size: 15px; }
+.home-site-header .header-account { margin-left: auto; padding: 11px 14px; white-space: nowrap; }
+.home-site-header .header-upload { margin: 0 14px 0 10px; padding: 14px 20px; font-size: 15px; white-space: nowrap; }
 .home-site-header .header-upload svg { width: 19px; height: 19px; }
 .home-site-header .menu-toggle { display: grid; width: 46px; height: 44px; place-content: center; order: -1; flex: 0 0 auto; margin-right: 14px; padding: 7px; border: 1px solid #e1e7ee; border-radius: 10px; cursor: pointer; }
 .home-site-header .menu-toggle span { width: 26px; }
@@ -168,6 +169,10 @@ h1, h2, h3, p { margin-top: 0; }
 .resource-detail-link { display: flex; flex: 1; flex-direction: column; }
 .resource-cover { position: relative; height: 166px; overflow: hidden; }
 .resource-preview-image, .resource-preview-frame { display: block; width: 100%; height: 100%; border: 0; object-fit: cover; background: #f0f3f7; pointer-events: none; }
+.resource-locked-cover { display: flex; align-items: center; justify-content: center; color: var(--navy); background: linear-gradient(145deg, #edf4fa, #dce9f4); }
+.resource-locked-cover > div { display: flex; align-items: center; flex-direction: column; gap: 7px; padding: 18px; text-align: center; }
+.resource-locked-cover strong { font-size: 15px; }
+.resource-locked-cover span { color: #64758a; font-size: 10px; }
 .document-cover-art { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 14px; padding: 20px; color: var(--navy); background: linear-gradient(145deg, #edf4fa, #dce9f4); }
 .document-cover-art::before { position: absolute; width: 116px; height: 146px; border: 1px solid rgba(18,59,101,.14); border-radius: 5px; background: rgba(255,255,255,.82); box-shadow: 0 8px 18px rgba(18,59,101,.1); content: ""; transform: rotate(-4deg); }
 .cover-file-badge, .cover-lines, .document-cover-art strong { position: relative; z-index: 1; }
@@ -276,7 +281,9 @@ h1, h2, h3, p { margin-top: 0; }
   .site-header, .home-site-header { height: 68px; }
   .brand, .home-site-header .brand { font-size: 18px; }
   .brand-mark, .home-site-header .brand-mark { width: 27px; height: 27px; }
-  .home-site-header .header-upload { margin: 0 8px 0 auto; padding: 9px 11px; font-size: 11px; }
+  .home-site-header .header-account { margin-left: auto; padding: 8px 10px; font-size: 10px; }
+  .home-site-header .header-upload { margin: 0 8px; padding: 9px; font-size: 11px; }
+  .home-site-header .header-upload-text { display: none; }
   .header-upload svg, .home-site-header .header-upload svg { width: 15px; height: 15px; }
   .menu-toggle, .home-site-header .menu-toggle { display: grid; width: 40px; height: 40px; margin-right: 8px; }
   .home-site-header .menu-toggle span { width: 22px; }
@@ -378,11 +385,32 @@ h1, h2, h3, p { margin-top: 0; }
 .resources-heading > div > p { margin: 7px 0 0; color: #758398; font-size: 12px; }
 .upload-panel-form { display: grid; grid-template-columns: minmax(220px, .75fr) minmax(0, 1.25fr); gap: 34px; align-items: start; padding: 36px; }
 .upload-panel-form .upload-copy { padding-top: 10px; }
+.upload-student-workflow { display: grid; min-width: 0; gap: 12px; }
+.student-account-panel { padding: 17px 20px; color: var(--navy); border-radius: 12px; background: #fff; }
+.student-auth-tabs { display: flex; gap: 8px; margin-bottom: 13px; }
+.student-auth-tab { min-height: 34px; padding: 0 12px; color: #64758a; border: 1px solid #dce4ec; border-radius: 7px; background: #fff; font-size: 11px; font-weight: 700; cursor: pointer; }
+.student-auth-tab.active { color: #fff; border-color: var(--blue); background: var(--blue); }
+.student-auth-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; }
+.student-auth-form#student-register-form { grid-template-columns: 1fr; }
+.student-auth-form label { display: flex; min-width: 0; flex-direction: column; gap: 6px; color: #52657a; font-size: 11px; font-weight: 700; }
+.student-auth-form input { width: 100%; min-width: 0; min-height: 39px; padding: 9px 10px; color: var(--navy); border: 1px solid #dce4ec; border-radius: 7px; background: #fff; font-size: 12px; }
+.student-auth-form small { color: #8492a1; font-size: 9px; font-weight: 400; }
+.student-auth-form button { grid-column: 1 / -1; min-height: 39px; }
+.student-auth-form#student-register-form button { grid-column: 1; }
+.student-account-status { display: flex; align-items: center; justify-content: space-between; gap: 15px; }
+.student-account-status strong { color: var(--navy); font-size: 12px; overflow-wrap: anywhere; }
+.student-account-status p { margin: 6px 0 0; color: #64758a; font-size: 11px; line-height: 1.6; }
+.student-account-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+.student-account-actions .button { min-height: 34px; padding: 0 11px; font-size: 10px; }
+.student-auth-status { margin: 0; color: #285d46; font-size: 11px; line-height: 1.5; }
+.student-auth-status:not(:empty) { margin-top: 11px; padding: 8px; border-radius: 7px; background: #e9f6ef; }
+.student-auth-status[data-state="error"] { color: #8c3737; background: #fff0ef; }
 .upload-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; padding: 20px; color: var(--navy); border-radius: 12px; background: #fff; }
+.upload-form[hidden], .student-auth-form[hidden] { display: none; }
 .upload-form label, .admin-form label, #admin-login label { display: flex; min-width: 0; flex-direction: column; gap: 6px; color: #52657a; font-size: 11px; font-weight: 700; }
 .upload-form input, .upload-form select, .admin-form input, .admin-form select, #admin-login input, .admin-list-heading select, .admin-correction-form input { width: 100%; min-width: 0; min-height: 39px; padding: 9px 10px; color: var(--navy); border: 1px solid #dce4ec; border-radius: 7px; background: #fff; font-size: 12px; }
-.upload-form input[type="file"], .admin-correction-form input[type="file"] { padding: 7px; }
-.upload-form small { color: #8492a1; font-size: 9px; font-weight: 400; }
+.upload-form input[type="file"], .admin-correction-form input[type="file"], .admin-resource-upload-form input[type="file"] { padding: 7px; }
+.upload-form small, .admin-resource-upload-form small { color: #8492a1; font-size: 9px; font-weight: 400; }
 .upload-file-label, .upload-submit, .upload-status { grid-column: 1 / -1; }
 .upload-submit { min-height: 43px; padding: 0 17px; color: var(--navy); background: var(--yellow); }
 .upload-submit:hover { background: #e9b92f; }
@@ -409,6 +437,11 @@ h1, h2, h3, p { margin-top: 0; }
 .admin-management-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .admin-form { display: grid; gap: 12px; }
 .admin-form .button { justify-self: start; padding: 10px 14px; }
+.admin-resource-upload-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.admin-resource-upload-form h2, .admin-resource-upload-form p, .admin-resource-upload-form button, .admin-resource-upload-form .admin-upload-file { grid-column: 1 / -1; }
+.admin-resource-upload-form p { margin: -4px 0 0; color: #718094; font-size: 12px; line-height: 1.6; }
+.admin-upload-status { margin-bottom: 0; }
+.admin-upload-status:empty { display: none; }
 .admin-list-heading h2 { margin: 0; }
 .admin-list-heading label { display: flex; align-items: center; gap: 9px; color: #718094; font-size: 11px; }
 .admin-list-heading select { width: auto; }
@@ -429,13 +462,34 @@ h1, h2, h3, p { margin-top: 0; }
 .admin-correction-form { display: grid; width: 100%; gap: 7px; margin: 7px 0; }
 .admin-correction-form label { color: #718094; font-size: 10px; }
 .admin-correction-status { color: #287c57; font-size: 10px; }
+.student-privacy-note { margin: 12px 0 0; color: #8492a1; font-size: 10px; line-height: 1.5; }
+.admin-students-table-wrap { overflow-x: auto; }
+.admin-students-table { width: 100%; margin-top: 15px; border-collapse: collapse; text-align: left; }
+.admin-students-table th, .admin-students-table td { padding: 11px 9px; border-top: 1px solid #edf0f4; color: #52657a; font-size: 11px; vertical-align: middle; }
+.admin-students-table th { color: #718094; font-size: 10px; }
+.admin-students-table td strong, .admin-students-table td small { display: block; }
+.admin-students-table td small { margin-top: 4px; color: #8492a1; font-size: 10px; }
+.admin-students-table .button { white-space: nowrap; }
+.admin-presence { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.admin-presence::before { width: 7px; height: 7px; border-radius: 50%; background: #9aa8b6; content: ""; }
+.admin-presence.is-online::before { background: #2f9b68; }
+.admin-student-activity { margin-top: 22px; padding-top: 18px; border-top: 1px solid #edf0f4; }
+.admin-student-activity h3 { margin: 0; color: var(--navy); font: 700 15px var(--font-display); }
+.admin-student-activity h4 { margin: 18px 0 8px; color: var(--navy); font-size: 12px; }
+.admin-student-activity > p { color: #718094; font-size: 11px; line-height: 1.5; }
+.admin-activity-events { margin: 0; padding: 0; list-style: none; }
+.admin-activity-events li { display: grid; grid-template-columns: minmax(140px, .7fr) minmax(120px, 1fr) minmax(170px, 1fr); gap: 10px; padding: 10px 0; border-top: 1px solid #edf0f4; color: #52657a; font-size: 11px; }
+.admin-activity-events time { color: #8492a1; }
 @media (max-width: 900px) {
   .level-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .browse-filters, .library-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .upload-panel-form { grid-template-columns: 1fr; gap: 18px; }
   .upload-panel-form .upload-copy { max-width: none; }
+  .upload-student-workflow { width: 100%; }
   .admin-resource { grid-template-columns: minmax(170px, 1fr) minmax(190px, 1fr); }
   .admin-resource-actions { grid-column: 1 / -1; }
+  .admin-activity-events li { grid-template-columns: 1fr 1fr; }
+  .admin-activity-events time { grid-column: 1 / -1; }
 }
 @media (max-width: 680px) {
   .academic-step { padding: 16px; }
@@ -449,17 +503,26 @@ h1, h2, h3, p { margin-top: 0; }
   .upload-panel-form { padding: 25px 18px; }
   .upload-form { grid-template-columns: 1fr; padding: 15px; }
   .upload-form label, .upload-submit, .upload-status { grid-column: 1; }
+  .student-auth-form { grid-template-columns: 1fr; }
+  .student-auth-form button { grid-column: 1; }
+  .student-account-status { align-items: flex-start; flex-direction: column; }
   #admin-login { align-items: stretch; flex-direction: column; }
   .admin-management-grid { grid-template-columns: 1fr; gap: 0; }
+  .admin-resource-upload-form { grid-template-columns: 1fr; }
+  .admin-resource-upload-form h2, .admin-resource-upload-form p, .admin-resource-upload-form button, .admin-resource-upload-form .admin-upload-file { grid-column: 1; }
   .admin-list-heading { align-items: stretch; flex-direction: column; }
   .admin-list-heading label { justify-content: space-between; }
   .admin-list-heading select { flex: 1; }
   .admin-resource { grid-template-columns: 1fr; }
   .admin-resource-actions { grid-column: auto; }
+  .admin-student-heading { align-items: flex-start; }
+  .admin-activity-events li { grid-template-columns: 1fr; gap: 4px; }
+  .admin-activity-events time { grid-column: auto; }
 }
 @media (max-width: 390px) {
   .container { width: calc(100% - 28px); }
   .header-upload { gap: 5px; padding: 8px; font-size: 10px; }
+  .home-site-header .header-account { padding: 7px 8px; font-size: 9px; }
   .hero, .hero-content { min-height: 615px; }
   .hero-description { font-size: 12px; }
   .hero-art { bottom: 12px; transform: scale(.7); }
@@ -481,6 +544,8 @@ h1, h2, h3, p { margin-top: 0; }
 .detail-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .detail-actions .button:disabled { cursor: not-allowed; opacity: .65; transform: none; }
 .detail-demo-note { margin: -12px 0 15px; color: #758398; font-size: 12px; line-height: 1.6; }
+.detail-access-note { margin: 0 0 15px; padding: 11px 13px; color: #51657b; border-radius: 8px; background: #fff5d9; font-size: 12px; line-height: 1.6; }
+.detail-access-note a { color: var(--blue); font-weight: 700; text-decoration: underline; }
 .resource-detail-copy { padding: 12px 3px; }
 .resource-detail-copy .eyebrow { color: var(--blue); text-transform: uppercase; }
 .resource-detail-copy h1 { margin: 12px 0; color: var(--navy); font: 800 clamp(25px, 3vw, 36px)/1.2 var(--font-display); }

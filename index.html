@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <script src="activity.js" defer></script>
   <script src="script.js" defer></script>
 </head>
 <body>
@@ -27,9 +28,10 @@
         <a class="nav-link" href="#student-documents">Documents</a>
         <a class="nav-link" href="/admin.html">Administration</a>
       </nav>
-      <a class="button button-primary header-upload" href="#upload">
+      <a class="button button-secondary header-account" id="header-account" href="#upload">Inscription / Connexion</a>
+      <a class="button button-primary header-upload" href="#upload" aria-label="Partager une ressource">
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 13V3m0 0L6 7m4-4 4 4M4 12v4a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        Partager une ressource
+        <span class="header-upload-text">Partager une ressource</span>
       </a>
       <button class="menu-toggle" type="button" aria-label="Ouvrir la navigation" aria-expanded="false" aria-controls="main-nav">
         <span></span><span></span><span></span>
@@ -44,7 +46,7 @@
         <div class="hero-copy">
           <div class="eyebrow hero-eyebrow"><span class="eyebrow-dot"></span> LE SAVOIR DE VOTRE CAMPUS, À PARTAGER</div>
           <h1>De bonnes notes.<br><span>Ensemble, on avance.</span></h1>
-          <p class="hero-description">Trouvez les ressources qu’il vous faut, partagées par des étudiants qui connaissent vos cours. Apprenez plus, stressez moins.</p>
+          <p class="hero-description">Les PDF étudiants sont vérifiés avant publication. Trois PDF uniques approuvés ouvrent les téléchargements des documents étudiants pendant 72 heures. Les PDF ajoutés par l’administration sont publiés directement.</p>
           <form class="search-form" id="search-form" role="search">
             <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
             <label class="sr-only" for="resource-search">Rechercher des ressources ou des cours</label>
@@ -143,8 +145,34 @@
 
     <section class="upload-section" id="upload">
       <div class="container upload-panel upload-panel-form">
-        <div class="upload-copy"><span class="upload-star" aria-hidden="true">✦</span><div class="eyebrow">CONTRIBUEZ À VOTRE CAMPUS</div><h2>Partager un document</h2><p>Les soumissions sont vérifiées par un administrateur avant d’être publiées dans la bibliothèque.</p></div>
-        <form class="upload-form" id="upload-form">
+        <div class="upload-copy"><span class="upload-star" aria-hidden="true">✦</span><div class="eyebrow">CONTRIBUEZ À VOTRE CAMPUS</div><h2>Partager un document</h2><p>Inscrivez-vous ou connectez-vous pour partager vos fichiers et suivre leur approbation.</p></div>
+        <div class="upload-student-workflow">
+          <section class="student-account-panel" id="student-account-panel" aria-label="Compte étudiant">
+            <div id="student-auth-view">
+              <div class="student-auth-tabs">
+                <button class="student-auth-tab active" id="student-login-tab" type="button" aria-pressed="true">Se connecter</button>
+                <button class="student-auth-tab" id="student-register-tab" type="button" aria-pressed="false">Créer un compte</button>
+              </div>
+              <form class="student-auth-form" id="student-login-form">
+                <label>E-mail ou nom d’utilisateur<input name="identifier" type="text" autocomplete="username" maxlength="254" required></label>
+                <label>Mot de passe<input name="password" type="password" autocomplete="current-password" required></label>
+                <button class="button button-primary" type="submit">Connexion</button>
+              </form>
+              <form class="student-auth-form" id="student-register-form" hidden>
+                <label>Nom d’utilisateur<input name="username" type="text" autocomplete="username" minlength="3" maxlength="32" pattern="[A-Za-z0-9._-]{3,32}" required><small>3 à 32 lettres, chiffres, points, tirets ou soulignés.</small></label>
+                <label>E-mail ou e-mail institutionnel<input name="email" type="email" autocomplete="email" maxlength="254" required></label>
+                <label>Mot de passe<input name="password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required><small>12 caractères minimum. Un lien de vérification sera envoyé par e-mail.</small></label>
+                <button class="button button-primary" type="submit">Créer mon compte</button>
+              </form>
+            </div>
+            <div class="student-account-status" id="student-account-view" hidden>
+              <div><strong id="student-account-username"></strong><p id="student-account-email"></p><p id="student-access-message"></p></div>
+              <div class="student-account-actions"><button class="button button-secondary" id="student-refresh-account" type="button">Actualiser</button><button class="button button-secondary" id="student-logout" type="button">Déconnexion</button></div>
+            </div>
+            <p class="student-auth-status" id="student-auth-status" role="status" aria-live="polite"></p>
+            <p class="student-privacy-note">Nous enregistrons les connexions et les téléchargements pour administrer le site. Le temps actif est une estimation lorsque le site est au premier plan. Ces événements sont conservés 180 jours ; les mots de passe ne sont jamais visibles par l’administration.</p>
+          </section>
+          <form class="upload-form" id="upload-form" hidden>
           <label>Titre du document<input name="title" maxlength="180" required></label>
           <label>Niveau académique<select name="academicLevel" id="upload-level" required></select></label>
           <label>Filière<select name="major" id="upload-major" required disabled><option value="">Sélectionnez d’abord un niveau</option></select></label>
@@ -157,8 +185,9 @@
           <label class="upload-file-label">Document PDF<input type="file" name="file" accept="application/pdf,.pdf" required><small>PDF uniquement · 20 Mo maximum</small></label>
           <label class="upload-file-label" id="correction-wrap" hidden>Correction PDF facultative<input type="file" name="correction" accept="application/pdf,.pdf"><small>Disponible comme téléchargement séparé après approbation.</small></label>
           <button class="button upload-submit" type="submit">Envoyer pour vérification <span aria-hidden="true">→</span></button>
-          <p class="upload-status" id="upload-status" role="status" aria-live="polite"></p>
-        </form>
+            <p class="upload-status" id="upload-status" role="status" aria-live="polite"></p>
+          </form>
+        </div>
       </div>
     </section>
 
