@@ -1,6 +1,9 @@
 const levels = ["Tronc Commun", "Licence", "Master", "Cycle Ingénieur"];
 const loginPanel = document.querySelector("#admin-login-panel");
 const dashboard = document.querySelector("#admin-dashboard");
+const publicInformation = document.querySelector("#admin-public-information");
+const publicContactEmail = document.querySelector("#admin-contact-email");
+const pageTitle = document.querySelector("#admin-page-title");
 const tokenInput = document.querySelector("#admin-token");
 const resourcesPanel = document.querySelector("#admin-resources");
 const studentsPanel = document.querySelector("#admin-students");
@@ -205,7 +208,9 @@ async function unlockDashboard() {
   await initializeAdminUploadOptions();
   await adminRequest("/api/admin/session", { method: "POST" });
   loginPanel.hidden = true;
+  publicInformation.hidden = true;
   dashboard.hidden = false;
+  pageTitle.textContent = "Gestion des documents";
   errorPanel.hidden = true;
   await Promise.all([loadResources(), loadStudents()]);
 }
@@ -232,6 +237,8 @@ document.querySelector("#admin-logout").addEventListener("click", async () => {
   tokenInput.value = "";
   dashboard.hidden = true;
   loginPanel.hidden = false;
+  publicInformation.hidden = false;
+  pageTitle.textContent = "Administration du site";
   resourcesPanel.replaceChildren();
   studentsPanel.replaceChildren();
   studentActivityPanel.replaceChildren();
@@ -350,3 +357,27 @@ resourcesPanel.addEventListener("submit", async (event) => {
     showError(error.message);
   }
 });
+
+async function initializeAdministrationPage() {
+  try {
+    const publicInfoResponse = await fetch("/api/admin/public-info");
+    const publicInfo = await publicInfoResponse.json();
+    if (publicInfo.contactEmail) {
+      publicContactEmail.textContent = publicInfo.contactEmail;
+      publicContactEmail.href = `mailto:${encodeURIComponent(publicInfo.contactEmail)}`;
+    }
+  } catch (error) {
+    showError("Impossible de charger les informations publiques.");
+  }
+
+  try {
+    const status = await adminRequest("/api/admin/session");
+    if (status.authenticated && status.role === "administrator") {
+      await unlockDashboard();
+    }
+  } catch (error) {
+    adminToken = "";
+  }
+}
+
+initializeAdministrationPage();

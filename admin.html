@@ -20,7 +20,24 @@
   </header>
   <main class="admin-page">
     <div class="container">
-      <div class="section-heading"><div><div class="eyebrow">ADMINISTRATION MABIBLIO</div><h1>Gestion des documents</h1></div></div>
+      <div class="section-heading"><div><div class="eyebrow">ADMINISTRATION MABIBLIO</div><h1 id="admin-page-title">Administration du site</h1></div></div>
+      <section class="admin-panel admin-public-information" id="admin-public-information">
+        <h2>Informations administratives</h2>
+        <div class="admin-public-grid">
+          <article>
+            <h3>Contacter l’administration</h3>
+            <p>Pour toute question concernant CampusShare, contactez-nous à : <a id="admin-contact-email" href="#">Adresse non configurée</a></p>
+          </article>
+          <article id="terms-and-conditions">
+            <h3>Conditions générales d’utilisation</h3>
+            <p>CampusShare permet aux étudiants de consulter et de partager des documents académiques. Les documents doivent être licites, pertinents et publiés avec les droits nécessaires. L’administration peut approuver, rejeter ou supprimer tout contenu qui viole ces règles.</p>
+          </article>
+          <article id="privacy-policy">
+            <h3>Politique de confidentialité</h3>
+            <p>Les données de compte, les statuts de vérification, les connexions et les activités liées aux téléchargements servent uniquement à gérer et sécuriser la plateforme. Les mots de passe sont enregistrés sous forme hachée. Les événements d’activité sont conservés 180 jours.</p>
+          </article>
+        </div>
+      </section>
       <section class="admin-panel" id="admin-login-panel">
         <h2>Accès administrateur</h2>
         <p>Entrez le jeton configuré dans la variable d’environnement <code>MABIBLIO_ADMIN_TOKEN</code> du serveur. Il reste uniquement dans cet onglet.</p>

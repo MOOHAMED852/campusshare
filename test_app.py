@@ -409,6 +409,28 @@ class MaBiblioApiTests(unittest.TestCase):
         self.assertEqual(invalid.status_code, 400)
         self.assertEqual(self.client.get("/api/resources").get_json()["total"], 0)
 
+    def test_administration_roles_are_server_side_and_student_sessions_do_not_grant_admin(self):
+        with patch.dict(os.environ, {"MABIBLIO_ADMIN_EMAIL": "admin@example.com"}):
+            public_info = self.client.get("/api/admin/public-info")
+        self.assertEqual(public_info.status_code, 200)
+        self.assertEqual(public_info.get_json()["contactEmail"], "admin@example.com")
+
+        self.create_verified_student()
+        self.assertEqual(self.client.get("/api/admin/session").get_json()["role"], None)
+        self.assertEqual(self.client.get("/api/admin/resources").status_code, 401)
+        self.assertEqual(self.client.post("/api/admin/session").status_code, 401)
+
+        admin_login = self.client.post("/api/admin/session", headers=self.admin_headers)
+        self.assertEqual(admin_login.status_code, 200)
+        self.assertTrue(admin_login.get_json()["authenticated"])
+        self.assertEqual(self.client.get("/api/admin/session").get_json()["role"], "administrator")
+        self.assertEqual(self.client.get("/api/admin/resources").status_code, 200)
+
+        admin_logout = self.client.delete("/api/admin/session")
+        self.assertEqual(admin_logout.status_code, 200)
+        self.assertFalse(self.client.get("/api/admin/session").get_json()["authenticated"])
+        self.assertEqual(self.client.get("/api/student/account").status_code, 200)
+
 
 if __name__ == "__main__":
     unittest.main()

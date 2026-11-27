@@ -429,6 +429,11 @@ h1, h2, h3, p { margin-top: 0; }
 .admin-panel { margin: 0 0 20px; padding: 22px; border: 1px solid #e2e8ef; border-radius: 12px; background: #fff; box-shadow: 0 4px 13px rgba(18,59,101,.04); }
 .admin-panel h2 { margin: 0 0 13px; color: var(--navy); font: 700 17px var(--font-display); }
 .admin-panel > p { color: #718094; font-size: 12px; line-height: 1.6; }
+.admin-public-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.admin-public-grid article { min-width: 0; padding: 16px; border: 1px solid #e7edf2; border-radius: 10px; background: #f9fbfd; }
+.admin-public-grid h3 { margin: 0 0 8px; color: var(--navy); font: 700 14px var(--font-display); }
+.admin-public-grid p { margin: 0; color: #718094; font-size: 12px; line-height: 1.65; }
+.admin-public-grid a { color: #1f668f; overflow-wrap: anywhere; }
 #admin-login { display: flex; align-items: end; gap: 13px; max-width: 700px; }
 #admin-login label { flex: 1; }
 .button-secondary { padding: 9px 13px; color: var(--navy); border: 1px solid #d9e2eb; background: #f5f8fb; }
@@ -483,6 +488,7 @@ h1, h2, h3, p { margin-top: 0; }
 @media (max-width: 900px) {
   .level-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .browse-filters, .library-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .admin-public-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .upload-panel-form { grid-template-columns: 1fr; gap: 18px; }
   .upload-panel-form .upload-copy { max-width: none; }
   .upload-student-workflow { width: 100%; }
@@ -493,6 +499,7 @@ h1, h2, h3, p { margin-top: 0; }
 }
 @media (max-width: 680px) {
   .academic-step { padding: 16px; }
+  .admin-public-grid { grid-template-columns: 1fr; }
   .university-grid { grid-template-columns: 1fr; }
   .level-grid, .major-grid { grid-template-columns: 1fr 1fr; gap: 9px; }
   .level-card, .major-card { min-height: 112px; padding: 13px; }

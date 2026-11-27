@@ -332,7 +332,7 @@ def api_error(message, status=400):
 
 
 def require_admin():
-    if session.get("admin_authenticated") is True:
+    if session.get("admin_authenticated") is True and session.get("admin_role") == "administrator":
         return True
     expected = os.environ.get("MABIBLIO_ADMIN_TOKEN") or os.environ.get("CAMPUSSHARE_ADMIN_TOKEN", "")
     supplied = request.headers.get("X-Admin-Token", "")
@@ -1201,12 +1201,35 @@ def create_admin_session():
     if not require_admin():
         return api_error("Le jeton administrateur est manquant ou invalide.", 401)
     session["admin_authenticated"] = True
-    return jsonify({"authenticated": True})
+    session["admin_role"] = "administrator"
+    return jsonify({"authenticated": True, "role": "administrator"})
+
+
+@app.get("/api/admin/session")
+def get_admin_session():
+    if require_admin():
+        return jsonify({"authenticated": True, "role": "administrator"})
+    return jsonify({"authenticated": False, "role": None})
+
+
+@app.get("/api/admin/public-info")
+def get_admin_public_info():
+    contact_email = (
+        os.environ.get("MABIBLIO_ADMIN_EMAIL")
+        or os.environ.get("MABIBLIO_FROM_EMAIL")
+        or ""
+    ).strip()
+    return jsonify({
+        "contactEmail": contact_email,
+        "termsAvailable": True,
+        "privacyAvailable": True,
+    })
 
 
 @app.delete("/api/admin/session")
 def destroy_admin_session():
-    session.clear()
+    session.pop("admin_authenticated", None)
+    session.pop("admin_role", None)
     return jsonify({"authenticated": False})
 
 
