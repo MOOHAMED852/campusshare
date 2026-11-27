@@ -28,7 +28,7 @@ from student_activity import (
 ROOT = Path(__file__).resolve().parent
 INSTANCE_DIR = ROOT / "instance"
 UPLOAD_DIR = INSTANCE_DIR / "uploads"
-DATABASE_PATH = INSTANCE_DIR / "campusshare.sqlite3"
+DATABASE_PATH = INSTANCE_DIR / "mabiblio.sqlite3"
 LEVELS = ("Tronc Commun", "Licence", "Master", "Cycle Ingénieur")
 CATEGORIES = ("Exams", "Courses", "TD & TP")
 SEMESTERS = tuple(f"S{number}" for number in range(1, 11))
@@ -58,10 +58,10 @@ ALLOWED_PAGES = {
 }
 
 app = Flask(__name__, static_folder=None)
-app.secret_key = os.environ.get("MABIBLIO_SESSION_SECRET") or os.environ.get("CAMPUSSHARE_SESSION_SECRET") or secrets.token_hex(32)
+app.secret_key = os.environ.get("MABIBLIO_SESSION_SECRET") or os.environ.get("MABIBLIO_SESSION_SECRET") or secrets.token_hex(32)
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Strict"
-app.config["SESSION_COOKIE_SECURE"] = os.environ.get("MABIBLIO_HTTPS") == "1" or os.environ.get("CAMPUSSHARE_HTTPS") == "1"
+app.config["SESSION_COOKIE_SECURE"] = os.environ.get("MABIBLIO_HTTPS") == "1" or os.environ.get("MABIBLIO_HTTPS") == "1"
 app.config["MAX_CONTENT_LENGTH"] = MAX_REQUEST_BYTES
 INSTANCE_DIR.mkdir(exist_ok=True)
 UPLOAD_DIR.mkdir(exist_ok=True)
@@ -267,6 +267,7 @@ def initialize_db():
             ("Tronc Commun", "Génie Électrique et Systèmes Embarqués"),
             ("Tronc Commun", "Génie Mécanique et Systèmes Industriels"),
             ("Tronc Commun", "Génie Biologie"),
+            ("Tronc Commun", "Analyse"),
             ("Licence", "Génie Informatique"),
             ("Licence", "Génie Civil"),
             ("Licence", "Génie Digital & Intelligence Artificielle"),
@@ -510,6 +511,23 @@ def send_student_verification_email(email, token):
                 smtp.login(username, password)
             smtp.send_message(message)
     except (OSError, smtplib.SMTPException, ValueError) as error:
+        if isinstance(error, smtplib.SMTPResponseException):
+            app.logger.error(
+                "Student verification email failed (%s, SMTP status %s)",
+                type(error).__name__,
+                error.smtp_code,
+            )
+        elif isinstance(error, OSError):
+            app.logger.error(
+                "Student verification email failed (%s, errno %s)",
+                type(error).__name__,
+                error.errno,
+            )
+        else:
+            app.logger.error(
+                "Student verification email failed (%s)",
+                type(error).__name__,
+            )
         raise RuntimeError("Impossible d’envoyer l’e-mail de vérification. Vérifiez la configuration SMTP.") from error
 
 

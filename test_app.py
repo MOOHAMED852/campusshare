@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from pypdf import PdfWriter
 from werkzeug.security import generate_password_hash
@@ -19,12 +19,12 @@ class MaBiblioApiTests(unittest.TestCase):
         self.original_uploads = campus_app.UPLOAD_DIR
         self.original_admin_email = os.environ.get("MABIBLIO_ADMIN_EMAIL")
         self.original_admin_token = os.environ.get("MABIBLIO_ADMIN_TOKEN")
-        self.original_legacy_admin_token = os.environ.get("CAMPUSSHARE_ADMIN_TOKEN")
+        self.original_legacy_admin_token = os.environ.get("MABIBLIO_ADMIN_TOKEN")
         self.original_public_url = os.environ.get("MABIBLIO_PUBLIC_URL")
         os.environ.pop("MABIBLIO_PUBLIC_URL", None)
         os.environ["MABIBLIO_ADMIN_EMAIL"] = "admin@example.com"
         os.environ.pop("MABIBLIO_ADMIN_TOKEN", None)
-        os.environ.pop("CAMPUSSHARE_ADMIN_TOKEN", None)
+        os.environ.pop("MABIBLIO_ADMIN_TOKEN", None)
         campus_app.DATABASE_PATH = Path(self.temporary_directory.name) / "test.sqlite3"
         campus_app.UPLOAD_DIR = Path(self.temporary_directory.name) / "uploads"
         campus_app.UPLOAD_DIR.mkdir()
@@ -68,9 +68,9 @@ class MaBiblioApiTests(unittest.TestCase):
         else:
             os.environ["MABIBLIO_ADMIN_TOKEN"] = self.original_admin_token
         if self.original_legacy_admin_token is None:
-            os.environ.pop("CAMPUSSHARE_ADMIN_TOKEN", None)
+            os.environ.pop("MABIBLIO_ADMIN_TOKEN", None)
         else:
-            os.environ["CAMPUSSHARE_ADMIN_TOKEN"] = self.original_legacy_admin_token
+            os.environ["MABIBLIO_ADMIN_TOKEN"] = self.original_legacy_admin_token
         if self.original_public_url is None:
             os.environ.pop("MABIBLIO_PUBLIC_URL", None)
         else:
@@ -184,6 +184,64 @@ class MaBiblioApiTests(unittest.TestCase):
                 campus_app.get_public_base_url(),
                 "https://custom.example",
             )
+
+    def test_verification_email_uses_configured_smtp_with_starttls(self):
+        smtp = MagicMock()
+        smtp_context = MagicMock()
+        smtp_context.__enter__.return_value = smtp
+        environment = {
+            "MABIBLIO_SMTP_HOST": "smtp.gmail.com",
+            "MABIBLIO_SMTP_PORT": "587",
+            "MABIBLIO_SMTP_USERNAME": "smtp-user@example.com",
+            "MABIBLIO_SMTP_PASSWORD": "fake-smtp-app-password",
+            "MABIBLIO_FROM_EMAIL": "smtp-user@example.com",
+            "MABIBLIO_PUBLIC_URL": "https://mabiblio.pythonanywhere.com",
+        }
+        with patch.dict(os.environ, environment, clear=True):
+            with patch.object(campus_app.smtplib, "SMTP", return_value=smtp_context) as smtp_factory:
+                campus_app.send_student_verification_email("student@example.com", "verification-token")
+
+        smtp_factory.assert_called_once_with("smtp.gmail.com", 587, timeout=15)
+        smtp.starttls.assert_called_once_with()
+        smtp.login.assert_called_once_with("smtp-user@example.com", "fake-smtp-app-password")
+        smtp.send_message.assert_called_once()
+        message = smtp.send_message.call_args.args[0]
+        self.assertEqual(message["To"], "student@example.com")
+        self.assertIn(
+            "https://mabiblio.pythonanywhere.com/api/student/verify?token=verification-token",
+            message.get_content(),
+        )
+
+    def test_verification_email_logs_auth_failure_without_credentials(self):
+        smtp = MagicMock()
+        smtp.login.side_effect = campus_app.smtplib.SMTPAuthenticationError(
+            535,
+            b"5.7.8 Authentication Credentials Invalid",
+        )
+        smtp_context = MagicMock()
+        smtp_context.__enter__.return_value = smtp
+        environment = {
+            "MABIBLIO_SMTP_HOST": "smtp.gmail.com",
+            "MABIBLIO_SMTP_PORT": "587",
+            "MABIBLIO_SMTP_USERNAME": "private-smtp-user@example.com",
+            "MABIBLIO_SMTP_PASSWORD": "private-smtp-password",
+            "MABIBLIO_FROM_EMAIL": "sender@example.com",
+        }
+        with patch.dict(os.environ, environment, clear=True):
+            with patch.object(campus_app.smtplib, "SMTP", return_value=smtp_context):
+                with self.assertLogs(campus_app.app.logger, level="ERROR") as captured:
+                    with self.assertRaises(RuntimeError) as raised:
+                        campus_app.send_student_verification_email("student@example.com", "token")
+
+        self.assertEqual(
+            str(raised.exception),
+            "Impossible d’envoyer l’e-mail de vérification. Vérifiez la configuration SMTP.",
+        )
+        self.assertIn("SMTPAuthenticationError", captured.output[0])
+        self.assertIn("535", captured.output[0])
+        self.assertNotIn("private-smtp-user@example.com", captured.output[0])
+        self.assertNotIn("private-smtp-password", captured.output[0])
+        smtp.send_message.assert_not_called()
 
     def test_registration_requires_email_verification_before_login(self):
         invalid_username = self.client.post(
