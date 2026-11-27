@@ -26,7 +26,7 @@ $env:MABIBLIO_SMTP_PORT = "587"
 $env:MABIBLIO_SMTP_USERNAME = "smtp-user"
 $env:MABIBLIO_SMTP_PASSWORD = "smtp-password"
 $env:MABIBLIO_FROM_EMAIL = "noreply@example.com"
-$env:MABIBLIO_PUBLIC_URL = "https://your-site.example"
+$env:MABIBLIO_PUBLIC_URL = "https://mabiblio.pythonanywhere.com"
 ```
 
 Keep SMTP credentials private. A verified student account is required to download any PDF. A contribution counts only after administrator approval. Three unique, approved student PDFs unlock downloads of student-contributed PDFs for 72 hours; each further batch of three approved PDFs queues another 72-hour period. Administrator-published documents are approved immediately and do not require contributions, but still require sign-in to download.

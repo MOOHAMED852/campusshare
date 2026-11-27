@@ -18,6 +18,8 @@ class MaBiblioApiTests(unittest.TestCase):
         self.original_database = campus_app.DATABASE_PATH
         self.original_uploads = campus_app.UPLOAD_DIR
         self.original_admin_token = os.environ.get("MABIBLIO_ADMIN_TOKEN")
+        self.original_public_url = os.environ.get("MABIBLIO_PUBLIC_URL")
+        os.environ.pop("MABIBLIO_PUBLIC_URL", None)
         campus_app.DATABASE_PATH = Path(self.temporary_directory.name) / "test.sqlite3"
         campus_app.UPLOAD_DIR = Path(self.temporary_directory.name) / "uploads"
         campus_app.UPLOAD_DIR.mkdir()
@@ -39,6 +41,10 @@ class MaBiblioApiTests(unittest.TestCase):
             os.environ.pop("MABIBLIO_ADMIN_TOKEN", None)
         else:
             os.environ["MABIBLIO_ADMIN_TOKEN"] = self.original_admin_token
+        if self.original_public_url is None:
+            os.environ.pop("MABIBLIO_PUBLIC_URL", None)
+        else:
+            os.environ["MABIBLIO_PUBLIC_URL"] = self.original_public_url
         self.temporary_directory.cleanup()
 
     @staticmethod
@@ -127,6 +133,28 @@ class MaBiblioApiTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("Génie Informatique", {major["name"] for major in response.get_json()["majors"]})
+
+    def test_public_base_url_uses_localhost_when_running_locally(self):
+        with campus_app.app.test_request_context("/", base_url="http://127.0.0.1:8000"):
+            self.assertEqual(
+                campus_app.get_public_base_url(),
+                "http://127.0.0.1:8000",
+            )
+
+    def test_public_base_url_uses_pythonanywhere_by_default(self):
+        with campus_app.app.test_request_context("/", base_url="https://mabiblio.pythonanywhere.com"):
+            self.assertEqual(
+                campus_app.get_public_base_url(),
+                "https://mabiblio.pythonanywhere.com",
+            )
+
+    def test_public_base_url_honors_explicit_environment_override(self):
+        os.environ["MABIBLIO_PUBLIC_URL"] = "https://custom.example/"
+        with campus_app.app.test_request_context("/", base_url="https://mabiblio.pythonanywhere.com"):
+            self.assertEqual(
+                campus_app.get_public_base_url(),
+                "https://custom.example",
+            )
 
     def test_registration_requires_email_verification_before_login(self):
         invalid_username = self.client.post(

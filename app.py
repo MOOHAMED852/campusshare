@@ -454,6 +454,25 @@ def grant_eligible_student_access(connection, student_id):
         created_grants.append({"startsAt": starts_at.isoformat(), "expiresAt": expires_at.isoformat()})
 
 
+def get_public_base_url():
+    configured_url = os.environ.get("MABIBLIO_PUBLIC_URL", "").strip()
+    if configured_url:
+        return configured_url.rstrip("/")
+
+    try:
+        host = request.host.lower()
+    except RuntimeError:
+        host = ""
+
+    if host.startswith(("127.0.0.1", "localhost", "[::1]", "::1")):
+        try:
+            return request.host_url.rstrip("/")
+        except RuntimeError:
+            return "http://127.0.0.1:8000"
+
+    return "https://mabiblio.pythonanywhere.com"
+
+
 def send_student_verification_email(email, token):
     host = os.environ.get("MABIBLIO_SMTP_HOST", "").strip()
     sender = os.environ.get("MABIBLIO_FROM_EMAIL", "").strip()
@@ -465,7 +484,7 @@ def send_student_verification_email(email, token):
         message["Subject"] = "Vérifiez votre adresse e-mail — MaBiblio"
         message["From"] = sender
         message["To"] = email
-        base_url = os.environ.get("MABIBLIO_PUBLIC_URL", "http://127.0.0.1:8000").rstrip("/")
+        base_url = get_public_base_url()
         verification_url = f"{base_url}/api/student/verify?token={quote(token)}"
         message.set_content(
             f"Confirmez votre adresse e-mail en ouvrant ce lien (valable 24 heures) :\n{verification_url}\n"
