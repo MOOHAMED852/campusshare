@@ -28,24 +28,48 @@
             <h3>Contacter l’administration</h3>
             <p>Pour toute question concernant CampusShare, contactez-nous à : <a id="admin-contact-email" href="#">Adresse non configurée</a></p>
           </article>
+        </div>
+        <div class="admin-policy-grid">
           <article id="terms-and-conditions">
             <h3>Conditions générales d’utilisation</h3>
-            <p>CampusShare permet aux étudiants de consulter et de partager des documents académiques. Les documents doivent être licites, pertinents et publiés avec les droits nécessaires. L’administration peut approuver, rejeter ou supprimer tout contenu qui viole ces règles.</p>
+            <p>En créant un compte ou en utilisant CampusShare, vous acceptez les présentes conditions. CampusShare aide les étudiants à consulter et à partager des ressources pédagogiques. L’accès aux fonctions de compte nécessite une adresse e-mail vérifiée.</p>
+            <h4>Comptes et sécurité</h4>
+            <ul>
+              <li>Fournissez des informations exactes et gardez vos identifiants confidentiels. Vous êtes responsable de l’activité effectuée depuis votre compte.</li>
+              <li>N’essayez pas d’accéder au compte d’un autre utilisateur, de contourner les contrôles d’accès ou de perturber le service.</li>
+            </ul>
+            <h4>Documents partagés</h4>
+            <ul>
+              <li>Ne téléversez que des documents que vous êtes autorisé à partager. Respectez les droits d’auteur, les règles de votre établissement et la vie privée des personnes concernées.</li>
+              <li>Les contenus illégaux, trompeurs, malveillants, confidentiels ou sans rapport avec l’apprentissage ne sont pas autorisés.</li>
+              <li>Les documents soumis par les étudiants restent en attente jusqu’à leur examen par l’administration. Celle-ci peut approuver, refuser ou retirer un document qui ne respecte pas ces conditions.</li>
+            </ul>
+            <h4>Accès et disponibilité</h4>
+            <p>Les téléchargements de documents étudiants sont soumis aux règles d’accès affichées sur le site, notamment au nombre de contributions uniques approuvées et à leur durée d’accès. Les documents publiés par l’administration peuvent suivre des règles différentes. Les ressources sont fournies à des fins pédagogiques : vérifiez leur exactitude auprès de votre établissement avant de vous y fier. CampusShare ne garantit pas une disponibilité continue ni l’absence d’erreurs dans les documents.</p>
+            <p>L’administration peut modifier ces conditions pour refléter l’évolution du service. L’utilisation continue du site après une mise à jour vaut acceptation des conditions révisées.</p>
           </article>
           <article id="privacy-policy">
             <h3>Politique de confidentialité</h3>
-            <p>Les données de compte, les statuts de vérification, les connexions et les activités liées aux téléchargements servent uniquement à gérer et sécuriser la plateforme. Les mots de passe sont enregistrés sous forme hachée. Les événements d’activité sont conservés 180 jours.</p>
+            <p>Cette politique décrit les données traitées par CampusShare et les raisons de leur utilisation.</p>
+            <h4>Données utilisées</h4>
+            <ul>
+              <li>Compte : nom d’utilisateur, adresse e-mail, mot de passe sous forme hachée, état et date de vérification, et date de création du compte.</li>
+              <li>Documents : fichiers téléversés et leurs informations descriptives, comme le titre, le niveau, la filière, le module et l’année académique.</li>
+              <li>Activité : connexions et déconnexions, téléchargements, activité récente et estimation du temps actif lorsque le site est visible.</li>
+              <li>Le site utilise un cookie de session nécessaire à la connexion. Les événements d’activité enregistrés par l’application ne contiennent pas l’adresse IP.</li>
+            </ul>
+            <h4>Utilisation et accès</h4>
+            <p>Ces données servent à créer et sécuriser les comptes, vérifier les adresses e-mail, afficher les ressources, appliquer les règles d’accès, modérer les documents et assurer le fonctionnement du service. Les informations de compte et d’activité ne sont accessibles qu’aux fonctions nécessaires du site et à l’administration autorisée. Les mots de passe ne sont pas accessibles en clair.</p>
+            <h4>Conservation et sécurité</h4>
+            <p>Les événements d’activité sont automatiquement supprimés après 180 jours. Les informations de compte et les documents sont conservés pour permettre le fonctionnement du service, jusqu’à leur suppression ou jusqu’à ce qu’ils ne soient plus nécessaires. Les mots de passe et jetons de vérification sont stockés sous forme hachée. Les protections techniques réduisent les risques, mais aucun service en ligne ne peut garantir une sécurité absolue.</p>
+            <h4>Vos demandes et contact</h4>
+            <p>Pour poser une question sur vos données ou demander leur correction ou leur suppression, contactez l’administration à l’adresse indiquée ci-dessus. Les obligations applicables et les possibilités de traitement dépendent de la législation pertinente. Cette politique peut être mise à jour lorsque le service ou ses pratiques évoluent.</p>
           </article>
         </div>
       </section>
-      <section class="admin-panel" id="admin-login-panel">
-        <h2>Accès administrateur</h2>
-        <p>Entrez le jeton configuré dans la variable d’environnement <code>MABIBLIO_ADMIN_TOKEN</code> du serveur. Il reste uniquement dans cet onglet.</p>
-        <form id="admin-login"><label>Jeton administrateur<input id="admin-token" type="password" autocomplete="current-password" required></label><button class="button button-primary" type="submit">Ouvrir le tableau de bord</button></form>
-      </section>
       <p class="resource-error" id="admin-error" role="alert" hidden></p>
       <section id="admin-dashboard" hidden>
-        <div class="admin-toolbar"><p id="admin-status" role="status"></p><button class="button button-secondary" id="admin-logout" type="button">Verrouiller le tableau de bord</button></div>
+        <div class="admin-toolbar"><p id="admin-status" role="status"></p><button class="button button-secondary" id="admin-logout" type="button">Quitter l’administration</button></div>
         <div class="admin-management-grid">
           <form class="admin-panel admin-form" id="major-form">
             <h2>Ajouter une filière</h2>
@@ -84,7 +108,7 @@
         </section>
         <section class="admin-panel">
           <div class="admin-list-heading admin-student-heading">
-            <h2>Comptes étudiants et activité</h2>
+            <h2>Gestion des étudiants</h2>
             <button class="button button-secondary" id="admin-refresh-students" type="button">Actualiser</button>
           </div>
           <p>Les étudiants sont considérés en ligne s’ils ont eu une activité au cours des 2 dernières minutes. Le temps actif est une estimation basée sur les pages visibles. Les événements sont conservés pendant 180 jours.</p>

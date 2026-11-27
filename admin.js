@@ -1,10 +1,8 @@
 const levels = ["Tronc Commun", "Licence", "Master", "Cycle Ingénieur"];
-const loginPanel = document.querySelector("#admin-login-panel");
 const dashboard = document.querySelector("#admin-dashboard");
 const publicInformation = document.querySelector("#admin-public-information");
 const publicContactEmail = document.querySelector("#admin-contact-email");
 const pageTitle = document.querySelector("#admin-page-title");
-const tokenInput = document.querySelector("#admin-token");
 const resourcesPanel = document.querySelector("#admin-resources");
 const studentsPanel = document.querySelector("#admin-students");
 const studentActivityPanel = document.querySelector("#admin-student-activity");
@@ -18,7 +16,6 @@ const adminUploadYear = document.querySelector("#admin-upload-year");
 const adminUploadSemester = document.querySelector("#admin-upload-semester");
 const adminUploadType = document.querySelector("#admin-upload-type");
 const adminUploadExamType = document.querySelector("#admin-upload-exam-type");
-let adminToken = "";
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
@@ -32,10 +29,10 @@ function escapeHtml(value) {
 
 async function adminRequest(url, options = {}) {
   const headers = new Headers(options.headers || {});
-  headers.set("X-Admin-Token", adminToken);
   if (options.body && !(options.body instanceof FormData)) headers.set("Content-Type", "application/json");
   const response = await fetch(url, { ...options, headers });
   const result = await response.json().catch(() => ({}));
+  if (response.status === 401) lockDashboard();
   if (!response.ok) throw new Error(result.error || `Le serveur a répondu ${response.status}.`);
   return result;
 }
@@ -91,6 +88,19 @@ async function initializeAdminUploadOptions() {
 function showError(message) {
   errorPanel.textContent = message;
   errorPanel.hidden = false;
+}
+
+function lockDashboard() {
+  dashboard.hidden = true;
+  publicInformation.hidden = false;
+  pageTitle.textContent = "Administration du site";
+  resourcesPanel.replaceChildren();
+  studentsPanel.replaceChildren();
+  studentActivityPanel.replaceChildren();
+  studentActivityPanel.hidden = true;
+  adminUploadForm.reset();
+  errorPanel.hidden = true;
+  statusMessage.textContent = "";
 }
 
 function renderAdminResource(resource) {
@@ -204,27 +214,13 @@ async function loadStudentActivity(studentId) {
 }
 
 async function unlockDashboard() {
-  await adminRequest("/api/admin/resources?status=pending");
   await initializeAdminUploadOptions();
-  await adminRequest("/api/admin/session", { method: "POST" });
-  loginPanel.hidden = true;
   publicInformation.hidden = true;
   dashboard.hidden = false;
   pageTitle.textContent = "Gestion des documents";
   errorPanel.hidden = true;
   await Promise.all([loadResources(), loadStudents()]);
 }
-
-document.querySelector("#admin-login").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  adminToken = tokenInput.value;
-  try {
-    await unlockDashboard();
-  } catch (error) {
-    adminToken = "";
-    showError(error.message);
-  }
-});
 
 document.querySelector("#admin-logout").addEventListener("click", async () => {
   try {
@@ -233,16 +229,7 @@ document.querySelector("#admin-logout").addEventListener("click", async () => {
     showError(error.message);
     return;
   }
-  adminToken = "";
-  tokenInput.value = "";
-  dashboard.hidden = true;
-  loginPanel.hidden = false;
-  publicInformation.hidden = false;
-  pageTitle.textContent = "Administration du site";
-  resourcesPanel.replaceChildren();
-  studentsPanel.replaceChildren();
-  studentActivityPanel.replaceChildren();
-  studentActivityPanel.hidden = true;
+  lockDashboard();
   statusMessage.textContent = "Tableau de bord verrouillé.";
 });
 
@@ -370,14 +357,31 @@ async function initializeAdministrationPage() {
     showError("Impossible de charger les informations publiques.");
   }
 
+  await refreshAdminAuthorization();
+}
+
+let authorizationCheckInProgress = false;
+
+async function refreshAdminAuthorization() {
+  if (authorizationCheckInProgress) return;
+  authorizationCheckInProgress = true;
+  if (!dashboard.hidden) lockDashboard();
   try {
-    const status = await adminRequest("/api/admin/session");
+    const status = await adminRequest("/api/admin/session", { cache: "no-store" });
     if (status.authenticated && status.role === "administrator") {
       await unlockDashboard();
     }
   } catch (error) {
-    adminToken = "";
+    lockDashboard();
+    showError(error.message);
+  } finally {
+    authorizationCheckInProgress = false;
   }
 }
+
+window.addEventListener("focus", refreshAdminAuthorization);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) refreshAdminAuthorization();
+});
 
 initializeAdministrationPage();

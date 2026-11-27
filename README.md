@@ -9,12 +9,13 @@ Install Python 3.9 or newer, then open PowerShell in this folder:
 ```powershell
 py -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-$env:MABIBLIO_ADMIN_TOKEN = "replace-with-a-long-random-admin-token"
+$env:MABIBLIO_ADMIN_EMAIL = "your-existing-verified-student-email@example.com"
+$env:MABIBLIO_CONTACT_EMAIL = "public-contact@example.com"
 $env:MABIBLIO_SESSION_SECRET = "replace-with-a-different-long-random-secret"
 .\.venv\Scripts\python.exe app.py
 ```
 
-Open `http://127.0.0.1:8000`. Keep the server running while using the site. Open `/admin.html` and enter the admin token to manage filières and academic years, review uploads, attach exam corrections, and remove documents. Do not share the token. These environment variables apply only to the current PowerShell session.
+Open `http://127.0.0.1:8000`. Keep the server running while using the site. Sign in through the normal student login using the verified account whose email matches `MABIBLIO_ADMIN_EMAIL`, then open `/admin.html` to manage documents and student accounts. No separate administrator password is used. These environment variables apply only to the current PowerShell session.
 
 The admin dashboard also lists student accounts, verified-email status, recent sign-ins, PDF download events, approximate active time, and an online indicator based on activity in the last two minutes. Active time is estimated from visible-site heartbeats, not exact attention tracking. Activity events are automatically deleted after 180 days. Passwords and IP addresses are not included in the activity dashboard.
 
@@ -26,6 +27,8 @@ $env:MABIBLIO_SMTP_PORT = "587"
 $env:MABIBLIO_SMTP_USERNAME = "smtp-user"
 $env:MABIBLIO_SMTP_PASSWORD = "smtp-password"
 $env:MABIBLIO_FROM_EMAIL = "noreply@example.com"
+$env:MABIBLIO_ADMIN_EMAIL = "your-existing-verified-student-email@example.com"
+$env:MABIBLIO_CONTACT_EMAIL = "public-contact@example.com"
 $env:MABIBLIO_PUBLIC_URL = "https://mabiblio.pythonanywhere.com"
 ```
 
@@ -43,9 +46,11 @@ The local Flask server is for development. Use a production WSGI server and HTTP
 - `GET /api/resources/<id>`, `/preview`, `/download`
 - `POST /api/student/register`, `GET /api/student/verify`, `GET /api/student/account`, `POST`/`DELETE /api/student/session`
 - `POST /api/student/activity` (authenticated visible-page activity heartbeat)
-- `GET /api/admin/resources` (requires `X-Admin-Token` or an authenticated admin session)
+- `GET /api/admin/resources` (requires the verified student session matching `MABIBLIO_ADMIN_EMAIL`)
 - `GET /api/admin/students`, `/api/admin/students/<id>/activity` (requires admin authentication)
-- `POST`, `DELETE /api/admin/session`; `POST /api/admin/resources` (publish an official PDF immediately); `POST /api/admin/resources/<id>/review`, `/correction`; `DELETE /api/admin/resources/<id>`
+- `GET`, `DELETE /api/admin/session`; `POST /api/admin/resources` (publish an official PDF immediately); `POST /api/admin/resources/<id>/review`, `/correction`; `DELETE /api/admin/resources/<id>`
 - `POST /api/admin/majors`, `/api/admin/academic-years`
+
+`MABIBLIO_ADMIN_EMAIL` is an authorization identity and must match the email of an existing verified student account. `MABIBLIO_CONTACT_EMAIL` is displayed publicly and does not grant administrator access. The legacy `MABIBLIO_ADMIN_TOKEN` and `CAMPUSSHARE_ADMIN_TOKEN` variables no longer authorize admin actions.
 
 View and download counts are stored in SQLite. Public endpoints return approved files only; unreviewed PDFs are kept outside the public web directory.

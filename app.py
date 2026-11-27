@@ -1,5 +1,4 @@
 import hashlib
-import hmac
 import io
 import os
 import re
@@ -332,18 +331,29 @@ def api_error(message, status=400):
 
 
 def require_admin():
-    if session.get("admin_authenticated") is True and session.get("admin_role") == "administrator":
-        return True
-    expected = os.environ.get("MABIBLIO_ADMIN_TOKEN") or os.environ.get("CAMPUSSHARE_ADMIN_TOKEN", "")
-    supplied = request.headers.get("X-Admin-Token", "")
-    return bool(expected) and bool(supplied) and hmac.compare_digest(expected, supplied)
+    if session.get("admin_role") != "administrator":
+        return False
+    student_id = student_session_id()
+    admin_email = os.environ.get("MABIBLIO_ADMIN_EMAIL", "").strip().lower()
+    if student_id is None or not admin_email:
+        return False
+    with connect_db() as connection:
+        student = connection.execute(
+            "SELECT email, email_verified_at FROM students WHERE id = ?",
+            (student_id,),
+        ).fetchone()
+    return bool(
+        student
+        and student["email_verified_at"]
+        and student["email"].strip().lower() == admin_email
+    )
 
 
 def require_admin_response():
-    if not (os.environ.get("MABIBLIO_ADMIN_TOKEN") or os.environ.get("CAMPUSSHARE_ADMIN_TOKEN")):
-        return api_error("L’accès administrateur n’est pas configuré. Définissez MABIBLIO_ADMIN_TOKEN avant de démarrer le serveur.", 503)
+    if not os.environ.get("MABIBLIO_ADMIN_EMAIL", "").strip():
+        return api_error("L’accès administrateur n’est pas configuré. Définissez MABIBLIO_ADMIN_EMAIL avant de démarrer le serveur.", 503)
     if not require_admin():
-        return api_error("Le jeton administrateur est manquant ou invalide.", 401)
+        return api_error("Connectez-vous avec le compte administrateur vérifié.", 401)
     return None
 
 
@@ -792,7 +802,7 @@ def create_student_session():
     with connect_db() as connection:
         student = connection.execute(
             """
-            SELECT id,password_hash,email_verified_at FROM students
+            SELECT id,email,password_hash,email_verified_at FROM students
             WHERE email = ? OR username = ? COLLATE NOCASE
             """,
             (normalized_identifier, identifier),
@@ -803,6 +813,9 @@ def create_student_session():
         return api_error("Vérifiez votre adresse e-mail avant de vous connecter.", 403)
     session.clear()
     session["student_id"] = student["id"]
+    admin_email = os.environ.get("MABIBLIO_ADMIN_EMAIL", "").strip().lower()
+    if admin_email and student["email"].strip().lower() == admin_email:
+        session["admin_role"] = "administrator"
     with connect_db() as connection:
         record_student_activity(connection, student["id"], "sign_in")
     return jsonify(student_account_status(student["id"]))
@@ -818,7 +831,7 @@ def destroy_student_session():
                 "UPDATE students SET last_activity_ping_at = NULL WHERE id = ?",
                 (student_id,),
             )
-    session.pop("student_id", None)
+    session.clear()
     return jsonify({"authenticated": False})
 
 
@@ -1194,17 +1207,6 @@ def admin_upload_resource():
         return api_error(str(validation_error))
 
 
-@app.post("/api/admin/session")
-def create_admin_session():
-    if not (os.environ.get("MABIBLIO_ADMIN_TOKEN") or os.environ.get("CAMPUSSHARE_ADMIN_TOKEN")):
-        return api_error("L’accès administrateur n’est pas configuré.", 503)
-    if not require_admin():
-        return api_error("Le jeton administrateur est manquant ou invalide.", 401)
-    session["admin_authenticated"] = True
-    session["admin_role"] = "administrator"
-    return jsonify({"authenticated": True, "role": "administrator"})
-
-
 @app.get("/api/admin/session")
 def get_admin_session():
     if require_admin():
@@ -1215,8 +1217,9 @@ def get_admin_session():
 @app.get("/api/admin/public-info")
 def get_admin_public_info():
     contact_email = (
-        os.environ.get("MABIBLIO_ADMIN_EMAIL")
+        os.environ.get("MABIBLIO_CONTACT_EMAIL")
         or os.environ.get("MABIBLIO_FROM_EMAIL")
+        or os.environ.get("MABIBLIO_ADMIN_EMAIL")
         or ""
     ).strip()
     return jsonify({
@@ -1228,7 +1231,6 @@ def get_admin_public_info():
 
 @app.delete("/api/admin/session")
 def destroy_admin_session():
-    session.pop("admin_authenticated", None)
     session.pop("admin_role", None)
     return jsonify({"authenticated": False})
 

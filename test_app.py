@@ -17,30 +17,60 @@ class MaBiblioApiTests(unittest.TestCase):
         self.temporary_directory = tempfile.TemporaryDirectory()
         self.original_database = campus_app.DATABASE_PATH
         self.original_uploads = campus_app.UPLOAD_DIR
+        self.original_admin_email = os.environ.get("MABIBLIO_ADMIN_EMAIL")
         self.original_admin_token = os.environ.get("MABIBLIO_ADMIN_TOKEN")
+        self.original_legacy_admin_token = os.environ.get("CAMPUSSHARE_ADMIN_TOKEN")
         self.original_public_url = os.environ.get("MABIBLIO_PUBLIC_URL")
         os.environ.pop("MABIBLIO_PUBLIC_URL", None)
+        os.environ["MABIBLIO_ADMIN_EMAIL"] = "admin@example.com"
+        os.environ.pop("MABIBLIO_ADMIN_TOKEN", None)
+        os.environ.pop("CAMPUSSHARE_ADMIN_TOKEN", None)
         campus_app.DATABASE_PATH = Path(self.temporary_directory.name) / "test.sqlite3"
         campus_app.UPLOAD_DIR = Path(self.temporary_directory.name) / "uploads"
         campus_app.UPLOAD_DIR.mkdir()
         campus_app.initialize_db()
         campus_app.app.config.update(TESTING=True)
         self.client = campus_app.app.test_client()
-        os.environ["MABIBLIO_ADMIN_TOKEN"] = "test-admin-token"
-        self.admin_headers = {"X-Admin-Token": "test-admin-token"}
+        self.admin_client = campus_app.app.test_client()
         with campus_app.connect_db() as connection:
             connection.execute(
                 "INSERT INTO majors (academic_level, name) VALUES (?, ?)",
                 ("Licence", "Computer Science"),
             )
+            now = datetime.now(timezone.utc).isoformat()
+            connection.execute(
+                """
+                INSERT INTO students (email, password_hash, email_verified_at, created_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    "admin@example.com",
+                    generate_password_hash("secure-student-password"),
+                    now,
+                    now,
+                ),
+            )
+        admin_login = self.admin_client.post(
+            "/api/student/session",
+            json={"email": "admin@example.com", "password": "secure-student-password"},
+        )
+        self.assertEqual(admin_login.status_code, 200)
 
     def tearDown(self):
         campus_app.DATABASE_PATH = self.original_database
         campus_app.UPLOAD_DIR = self.original_uploads
+        if self.original_admin_email is None:
+            os.environ.pop("MABIBLIO_ADMIN_EMAIL", None)
+        else:
+            os.environ["MABIBLIO_ADMIN_EMAIL"] = self.original_admin_email
         if self.original_admin_token is None:
             os.environ.pop("MABIBLIO_ADMIN_TOKEN", None)
         else:
             os.environ["MABIBLIO_ADMIN_TOKEN"] = self.original_admin_token
+        if self.original_legacy_admin_token is None:
+            os.environ.pop("CAMPUSSHARE_ADMIN_TOKEN", None)
+        else:
+            os.environ["CAMPUSSHARE_ADMIN_TOKEN"] = self.original_legacy_admin_token
         if self.original_public_url is None:
             os.environ.pop("MABIBLIO_PUBLIC_URL", None)
         else:
@@ -92,9 +122,8 @@ class MaBiblioApiTests(unittest.TestCase):
         )
 
     def approve(self, resource_id):
-        return self.client.post(
+        return self.admin_client.post(
             f"/api/admin/resources/{resource_id}/review",
-            headers=self.admin_headers,
             json={"status": "approved"},
         )
 
@@ -255,7 +284,7 @@ class MaBiblioApiTests(unittest.TestCase):
         self.assertEqual(exact_duplicate.status_code, 409)
         same_name_and_pages = self.upload_course(filename="same-name.pdf", pdf_data=self.make_pdf(width=90))
         self.assertEqual(same_name_and_pages.status_code, 409)
-        self.assertEqual(len(self.client.get("/api/admin/resources?status=pending", headers=self.admin_headers).get_json()["resources"]), 1)
+        self.assertEqual(len(self.admin_client.get("/api/admin/resources?status=pending").get_json()["resources"]), 1)
 
     def test_expired_access_can_be_renewed_with_three_new_approved_pdfs(self):
         student_id = self.create_verified_student()
@@ -288,9 +317,8 @@ class MaBiblioApiTests(unittest.TestCase):
 
     def test_admin_published_pdfs_are_immediately_public_and_ungated(self):
         self.create_verified_student()
-        response = self.client.post(
+        response = self.admin_client.post(
             "/api/admin/resources",
-            headers=self.admin_headers,
             data={
                 "title": "Official course notes",
                 "academicLevel": "Licence",
@@ -341,9 +369,8 @@ class MaBiblioApiTests(unittest.TestCase):
         self.assertEqual(heartbeat.status_code, 200)
         self.assertGreaterEqual(heartbeat.get_json()["activeSeconds"], 59)
 
-        published = self.client.post(
+        published = self.admin_client.post(
             "/api/admin/resources",
-            headers=self.admin_headers,
             data={
                 "title": "Official activity notes",
                 "academicLevel": "Licence",
@@ -363,7 +390,7 @@ class MaBiblioApiTests(unittest.TestCase):
         self.assertEqual(download.status_code, 200)
         download.close()
 
-        students = self.client.get("/api/admin/students", headers=self.admin_headers)
+        students = self.admin_client.get("/api/admin/students")
         self.assertEqual(students.status_code, 200)
         student = students.get_json()["students"][0]
         self.assertEqual(student["email"], "student@example.com")
@@ -373,24 +400,45 @@ class MaBiblioApiTests(unittest.TestCase):
         self.assertNotIn("password_hash", student)
         self.assertNotIn("password", student)
 
-        activity = self.client.get(
-            f"/api/admin/students/{student_id}/activity",
-            headers=self.admin_headers,
-        )
+        activity = self.admin_client.get(f"/api/admin/students/{student_id}/activity")
         self.assertEqual(activity.status_code, 200)
         event_types = [event["eventType"] for event in activity.get_json()["events"]]
         self.assertEqual(event_types[:2], ["download", "sign_in"])
         self.assertNotIn("password_hash", activity.get_json()["student"])
 
         self.assertEqual(self.client.delete("/api/student/session").status_code, 200)
-        signed_out = self.client.get("/api/admin/students", headers=self.admin_headers).get_json()["students"][0]
+        signed_out = self.admin_client.get("/api/admin/students").get_json()["students"][0]
         self.assertFalse(signed_out["online"])
 
-    def test_admin_routes_require_a_token_and_invalid_pdf_is_rejected(self):
+    def test_admin_routes_require_the_configured_verified_student_account(self):
         self.assertEqual(self.client.get("/api/admin/resources").status_code, 401)
         self.assertEqual(self.client.get("/api/admin/students").status_code, 401)
-        self.assertEqual(self.client.post("/api/admin/resources", headers=self.admin_headers).status_code, 400)
+        self.assertEqual(
+            self.client.get("/api/admin/resources", headers={"X-Admin-Token": "test-admin-token"}).status_code,
+            401,
+        )
+        self.assertEqual(
+            self.client.post("/api/admin/resources", headers={"X-Admin-Token": "test-admin-token"}).status_code,
+            401,
+        )
         self.create_verified_student()
+        protected_requests = (
+            ("GET", "/api/admin/resources"),
+            ("POST", "/api/admin/resources"),
+            ("GET", "/api/admin/students"),
+            ("GET", "/api/admin/students/1/activity"),
+            ("GET", "/api/admin/resources/1/preview"),
+            ("GET", "/api/admin/resources/1/correction/preview"),
+            ("POST", "/api/admin/resources/1/review"),
+            ("POST", "/api/admin/resources/1/correction"),
+            ("DELETE", "/api/admin/resources/1"),
+            ("POST", "/api/admin/majors"),
+            ("POST", "/api/admin/academic-years"),
+        )
+        for method, path in protected_requests:
+            response = self.client.open(path, method=method)
+            self.assertEqual(response.status_code, 401, f"{method} {path} should require administrator access")
+
         invalid = self.client.post(
             "/api/resources",
             data={
@@ -409,27 +457,63 @@ class MaBiblioApiTests(unittest.TestCase):
         self.assertEqual(invalid.status_code, 400)
         self.assertEqual(self.client.get("/api/resources").get_json()["total"], 0)
 
-    def test_administration_roles_are_server_side_and_student_sessions_do_not_grant_admin(self):
-        with patch.dict(os.environ, {"MABIBLIO_ADMIN_EMAIL": "admin@example.com"}):
+    def test_administration_roles_are_server_side_and_contact_email_does_not_grant_admin(self):
+        with patch.dict(os.environ, {"MABIBLIO_CONTACT_EMAIL": "contact@example.com"}):
             public_info = self.client.get("/api/admin/public-info")
         self.assertEqual(public_info.status_code, 200)
-        self.assertEqual(public_info.get_json()["contactEmail"], "admin@example.com")
+        self.assertEqual(public_info.get_json()["contactEmail"], "contact@example.com")
 
-        self.create_verified_student()
+        self.create_verified_student(email="contact@example.com")
         self.assertEqual(self.client.get("/api/admin/session").get_json()["role"], None)
         self.assertEqual(self.client.get("/api/admin/resources").status_code, 401)
-        self.assertEqual(self.client.post("/api/admin/session").status_code, 401)
+        self.assertEqual(self.client.post("/api/admin/session").status_code, 405)
+        self.assertEqual(self.admin_client.get("/api/admin/session").get_json()["role"], "administrator")
+        self.assertEqual(self.admin_client.get("/api/admin/resources").status_code, 200)
+        with patch.dict(os.environ, {"MABIBLIO_ADMIN_EMAIL": "other@example.com"}):
+            self.assertEqual(self.admin_client.get("/api/admin/resources").status_code, 401)
 
-        admin_login = self.client.post("/api/admin/session", headers=self.admin_headers)
-        self.assertEqual(admin_login.status_code, 200)
-        self.assertTrue(admin_login.get_json()["authenticated"])
-        self.assertEqual(self.client.get("/api/admin/session").get_json()["role"], "administrator")
-        self.assertEqual(self.client.get("/api/admin/resources").status_code, 200)
-
-        admin_logout = self.client.delete("/api/admin/session")
+        admin_logout = self.admin_client.delete("/api/admin/session")
         self.assertEqual(admin_logout.status_code, 200)
-        self.assertFalse(self.client.get("/api/admin/session").get_json()["authenticated"])
-        self.assertEqual(self.client.get("/api/student/account").status_code, 200)
+        self.assertFalse(self.admin_client.get("/api/admin/session").get_json()["authenticated"])
+        self.assertEqual(self.admin_client.get("/api/student/account").status_code, 200)
+
+    def test_unverified_configured_admin_account_cannot_access_admin_routes(self):
+        now = datetime.now(timezone.utc).isoformat()
+        with campus_app.connect_db() as connection:
+            connection.execute(
+                """
+                INSERT INTO students (email, password_hash, created_at)
+                VALUES (?, ?, ?)
+                """,
+                ("unverified-admin@example.com", generate_password_hash("secure-student-password"), now),
+            )
+        with patch.dict(os.environ, {"MABIBLIO_ADMIN_EMAIL": "unverified-admin@example.com"}):
+            login = self.client.post(
+                "/api/student/session",
+                json={
+                    "email": "unverified-admin@example.com",
+                    "password": "secure-student-password",
+                },
+            )
+            self.assertEqual(login.status_code, 403)
+            self.assertEqual(self.client.get("/api/admin/resources").status_code, 401)
+
+    def test_admin_logout_then_different_student_login_clears_all_privileges(self):
+        self.assertEqual(self.admin_client.get("/api/admin/session").get_json()["role"], "administrator")
+        self.assertEqual(self.admin_client.delete("/api/student/session").status_code, 200)
+        self.assertEqual(self.admin_client.get("/api/admin/resources").status_code, 401)
+
+        self.create_verified_student(email="another-student@example.com")
+        login = self.admin_client.post(
+            "/api/student/session",
+            json={
+                "email": "another-student@example.com",
+                "password": "secure-student-password",
+            },
+        )
+        self.assertEqual(login.status_code, 200)
+        self.assertEqual(self.admin_client.get("/api/admin/session").get_json()["role"], None)
+        self.assertEqual(self.admin_client.get("/api/admin/resources").status_code, 401)
 
 
 if __name__ == "__main__":
