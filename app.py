@@ -1220,7 +1220,7 @@ def get_admin_public_info():
         os.environ.get("MABIBLIO_CONTACT_EMAIL")
         or os.environ.get("MABIBLIO_FROM_EMAIL")
         or os.environ.get("MABIBLIO_ADMIN_EMAIL")
-        or ""
+        or "mabibliocontactteam@gmail.com"
     ).strip()
     return jsonify({
         "contactEmail": contact_email,

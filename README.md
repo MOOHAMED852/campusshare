@@ -10,7 +10,7 @@ Install Python 3.9 or newer, then open PowerShell in this folder:
 py -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 $env:MABIBLIO_ADMIN_EMAIL = "your-existing-verified-student-email@example.com"
-$env:MABIBLIO_CONTACT_EMAIL = "public-contact@example.com"
+$env:MABIBLIO_CONTACT_EMAIL = "mabibliocontactteam@gmail.com"
 $env:MABIBLIO_SESSION_SECRET = "replace-with-a-different-long-random-secret"
 .\.venv\Scripts\python.exe app.py
 ```
@@ -28,7 +28,7 @@ $env:MABIBLIO_SMTP_USERNAME = "smtp-user"
 $env:MABIBLIO_SMTP_PASSWORD = "smtp-password"
 $env:MABIBLIO_FROM_EMAIL = "noreply@example.com"
 $env:MABIBLIO_ADMIN_EMAIL = "your-existing-verified-student-email@example.com"
-$env:MABIBLIO_CONTACT_EMAIL = "public-contact@example.com"
+$env:MABIBLIO_CONTACT_EMAIL = "mabibliocontactteam@gmail.com"
 $env:MABIBLIO_PUBLIC_URL = "https://mabiblio.pythonanywhere.com"
 ```
 
